@@ -166,10 +166,10 @@
         function sortLocations(locations) {
             // Sort by user and then by timestamp within each user
             locations.sort((a, b) => {
-                if (a.id === b.id) {
+                if (a.user_id === b.user_id) {
                     return new Date(a.timestamp) - new Date(b.timestamp);
                 }
-                return a.id.localeCompare(b.id);
+                return a.user_id.localeCompare(b.user_id);
             });
         }
 
@@ -219,21 +219,21 @@
             let isEvenRow = true;
 
             locations.forEach((location, index) => {
-                var latLng = L.latLng(parseFloat(location[2]), parseFloat(location[3]));
+                var latLng = L.latLng(parseFloat(location.lat), parseFloat(location.lon));
                 bounds.extend(latLng); // Extend bounds to include this location
 
                 // Group locations by ID and separate trips
-                if (!idToLocations[location[1]]) {
-                    idToLocations[location[1]] = [];
+                if (!idToLocations[location.user_id]) {
+                    idToLocations[location.user_id] = [];
                 }
-                const trips = idToLocations[location[1]];
+                const trips = idToLocations[location.user_id];
 
-                if (trips.length === 0 || new Date(location[4]) - new Date(trips[trips.length - 1][trips[trips.length - 1].length - 1][4]) > timeThreshold) {
+                if (trips.length === 0 || new Date(location.timestamp) - new Date(trips[trips.length - 1][trips[trips.length - 1].length - 1].timestamp) > timeThreshold) {
                     trips.push([]);
                 }
-                trips[trips.length - 1].push({ latLng, timestamp: location[4] });
+                trips[trips.length - 1].push({ latLng, timestamp: location.timestamp });
 
-                location.user = `User ${location[1]}`; // Assign user ID
+                location.user = `User ${location.user_id}`; // Assign user ID
 
                 // Check if new user group should start
                 if (currentUser !== location.user) {
@@ -258,13 +258,13 @@
                 const tripCell = row.insertCell(10); // New cell for Show Trip button
 
                 userCell.textContent = location.user;
-                idCell.textContent = location[1];
-                latCell.textContent = location[2];
-                lonCell.textContent = location[3];
-                timestampCell.textContent = location[4];
-                distanceCell.textContent = parseFloat(location[5]).toFixed(2);
-                cumulativeDistanceCell.textContent = parseFloat(location[6]).toFixed(2);
-                speedCell.textContent = parseFloat(location[7]).toFixed(2);
+                idCell.textContent = location.user_id;
+                latCell.textContent = location.lat;
+                lonCell.textContent = location.lon;
+                timestampCell.textContent = location.timestamp;
+                distanceCell.textContent = parseFloat(location.distance).toFixed(2);
+                cumulativeDistanceCell.textContent = parseFloat(location.cumulative_distance).toFixed(2);
+                speedCell.textContent = parseFloat(location.speed).toFixed(2);
 
                 const showButton = document.createElement('button');
                 showButton.textContent = 'Show';
@@ -272,7 +272,7 @@
                 showButton.onclick = () => {
                     scrollToTop();
                     map.setView(latLng, 13);
-                    const marker = L.marker(latLng).addTo(map).bindPopup(`ID: ${location[1]}<br>Timestamp: ${location[4]}`).openPopup();
+                    const marker = L.marker(latLng).addTo(map).bindPopup(`ID: ${location.user_id}<br>Timestamp: ${location.timestamp}`).openPopup();
                     markers.push(marker);
                 };
                 actionCell.appendChild(showButton);
@@ -283,7 +283,7 @@
                 deleteButton.onclick = () => {
                     if (prompt('Enter password to delete:') === deletePassword) {
                         scrollToTop();
-                        deleteLocation(location[0]);
+                        deleteLocation(index);
                     } else {
                         alert('Incorrect password!');
                     }
@@ -292,7 +292,7 @@
 
                 // Trip column
                 const tripsLength = trips[trips.length - 1].length;
-                if (tripsLength === 1 || (tripsLength > 1 && (index === 0 || new Date(location[4]) - new Date(locations[index - 1][4]) > timeThreshold))) {
+                if (tripsLength === 1 || (tripsLength > 1 && (index === 0 || new Date(location.timestamp) - new Date(locations[index - 1].timestamp) > timeThreshold))) {
                     const showTripButton = document.createElement('button');
                     showTripButton.textContent = 'Show Trip';
                     showTripButton.classList.add('show-trip-button');
@@ -308,7 +308,7 @@
                     deleteTripButton.onclick = () => {
                         if (prompt('Enter password to delete:') === deletePassword) {
                             scrollToTop();
-                            deleteTrip(location[1], trips.length - 1);
+                            deleteTrip(location.user_id, trips.length - 1);
                         } else {
                             alert('Incorrect password!');
                         }
