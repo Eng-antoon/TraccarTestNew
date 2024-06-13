@@ -56,6 +56,10 @@
             background-color: #4CAF50;
             color: white;
         }
+        .button-container .delete-all-button {
+            background-color: #f44336;
+            color: white;
+        }
         .action-buttons .show-button {
             background-color: #2196F3;
             color: white;
@@ -102,6 +106,7 @@
     <h1>Location Updates</h1>
     <div class="button-container">
         <button class="show-all-button" onclick="scrollToTop(); showAll();">Show All</button>
+<!--         <button class="delete-all-button" onclick="scrollToTop(); deleteAll();">Delete All</button> -->
     </div>
     <div class="filter-container">
         <label for="userFilter">Filter by User: </label>
@@ -131,7 +136,6 @@
     </table>
     <script>
         const backendUrl = 'https://traccartestnew.onrender.com';
-        const deletePassword = "123456";
 
         let map;
         let markers = [];
@@ -146,7 +150,7 @@
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 const data = await response.json();
-                console.log('Fetched locations:', data); // Debug statement
+                console.log('Fetched locations:', data);
                 return data;
             } catch (error) {
                 console.error('Error fetching locations:', error);
@@ -166,10 +170,10 @@
         function sortLocations(locations) {
             // Sort by user and then by timestamp within each user
             locations.sort((a, b) => {
-                if (a.user_id === b.user_id) {
+                if (a.id === b.id) {
                     return new Date(a.timestamp) - new Date(b.timestamp);
                 }
-                return a.user_id.localeCompare(b.user_id);
+                return a.id.localeCompare(b.id);
             });
         }
 
@@ -188,7 +192,7 @@
 
         function updateFilterOptions(locations) {
             const userFilter = document.getElementById('userFilter');
-            const uniqueUsers = [...new Set(locations.map(loc => loc.user_id))];
+            const uniqueUsers = [...new Set(locations.map(loc => loc.id))];
             uniqueUsers.forEach(user => {
                 const option = document.createElement('option');
                 option.value = user;
@@ -198,7 +202,7 @@
         }
 
         function displayFilteredLocations() {
-            const locations = allLocations.filter(loc => currentUserFilter === 'all' || loc.user_id === currentUserFilter);
+            const locations = allLocations.filter(loc => currentUserFilter === 'all' || loc.id === currentUserFilter);
 
             sortLocations(locations);
 
@@ -223,17 +227,17 @@
                 bounds.extend(latLng); // Extend bounds to include this location
 
                 // Group locations by ID and separate trips
-                if (!idToLocations[location.user_id]) {
-                    idToLocations[location.user_id] = [];
+                if (!idToLocations[location.id]) {
+                    idToLocations[location.id] = [];
                 }
-                const trips = idToLocations[location.user_id];
+                const trips = idToLocations[location.id];
 
                 if (trips.length === 0 || new Date(location.timestamp) - new Date(trips[trips.length - 1][trips[trips.length - 1].length - 1].timestamp) > timeThreshold) {
                     trips.push([]);
                 }
                 trips[trips.length - 1].push({ latLng, timestamp: location.timestamp });
 
-                location.user = `User ${location.user_id}`; // Assign user ID
+                location.user = `User ${location.id}`; // Assign user ID
 
                 // Check if new user group should start
                 if (currentUser !== location.user) {
@@ -258,13 +262,13 @@
                 const tripCell = row.insertCell(10); // New cell for Show Trip button
 
                 userCell.textContent = location.user;
-                idCell.textContent = location.user_id;
+                idCell.textContent = location.id;
                 latCell.textContent = location.lat;
                 lonCell.textContent = location.lon;
                 timestampCell.textContent = location.timestamp;
-                distanceCell.textContent = parseFloat(location.distance).toFixed(2);
-                cumulativeDistanceCell.textContent = parseFloat(location.cumulative_distance).toFixed(2);
-                speedCell.textContent = parseFloat(location.speed).toFixed(2);
+                distanceCell.textContent = location.distance.toFixed(2);
+                cumulativeDistanceCell.textContent = location.cumulative_distance.toFixed(2);
+                speedCell.textContent = location.speed.toFixed(2);
 
                 const showButton = document.createElement('button');
                 showButton.textContent = 'Show';
@@ -272,7 +276,7 @@
                 showButton.onclick = () => {
                     scrollToTop();
                     map.setView(latLng, 13);
-                    const marker = L.marker(latLng).addTo(map).bindPopup(`ID: ${location.user_id}<br>Timestamp: ${location.timestamp}`).openPopup();
+                    const marker = L.marker(latLng).addTo(map).bindPopup(`ID: ${location.id}<br>Timestamp: ${location.timestamp}`).openPopup();
                     markers.push(marker);
                 };
                 actionCell.appendChild(showButton);
@@ -281,12 +285,8 @@
                 deleteButton.textContent = 'Delete';
                 deleteButton.classList.add('delete-button');
                 deleteButton.onclick = () => {
-                    if (prompt('Enter password to delete:') === deletePassword) {
-                        scrollToTop();
-                        deleteLocation(index);
-                    } else {
-                        alert('Incorrect password!');
-                    }
+                    scrollToTop();
+                    deleteLocation(index);
                 };
                 deleteCell.appendChild(deleteButton);
 
@@ -306,12 +306,8 @@
                     deleteTripButton.textContent = 'Delete Trip';
                     deleteTripButton.classList.add('delete-trip-button');
                     deleteTripButton.onclick = () => {
-                        if (prompt('Enter password to delete:') === deletePassword) {
-                            scrollToTop();
-                            deleteTrip(location.user_id, trips.length - 1);
-                        } else {
-                            alert('Incorrect password!');
-                        }
+                        scrollToTop();
+                        deleteTrip(location.id, trips.length - 1);
                     };
                     tripCell.appendChild(deleteTripButton);
                 } else {
@@ -345,19 +341,15 @@
         }
 
         async function deleteAll() {
-            if (prompt('Enter password to delete:') === deletePassword) {
-                try {
-                    const response = await fetch(`${backendUrl}/locations`, { method: 'DELETE' });
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    console.log('Deleted all locations');
-                    loadAndDisplayLocations();
-                } catch (error) {
-                    console.error('Error deleting all locations:', error);
+            try {
+                const response = await fetch(`${backendUrl}/locations`, { method: 'DELETE' });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
-            } else {
-                alert('Incorrect password!');
+                console.log('Deleted all locations');
+                loadAndDisplayLocations();
+            } catch (error) {
+                console.error('Error deleting all locations:', error);
             }
         }
 
@@ -375,36 +367,28 @@
         }
 
         async function deleteUser(userId) {
-            if (prompt('Enter password to delete:') === deletePassword) {
-                try {
-                    const response = await fetch(`${backendUrl}/locations/user/${userId}`, { method: 'DELETE' });
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    console.log(`Deleted all locations for user ${userId}`);
-                    loadAndDisplayLocations();
-                } catch (error) {
-                    console.error(`Error deleting locations for user ${userId}:`, error);
+            try {
+                const response = await fetch(`${backendUrl}/locations/user/${userId}`, { method: 'DELETE' });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
-            } else {
-                alert('Incorrect password!');
+                console.log(`Deleted all locations for user ${userId}`);
+                loadAndDisplayLocations();
+            } catch (error) {
+                console.error(`Error deleting locations for user ${userId}:`, error);
             }
         }
 
         async function deleteTrip(userId, tripIndex) {
-            if (prompt('Enter password to delete:') === deletePassword) {
-                try {
-                    const response = await fetch(`${backendUrl}/locations/trip/${userId}/${tripIndex}`, { method: 'DELETE' });
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    console.log(`Deleted trip ${tripIndex} for user ${userId}`);
-                    loadAndDisplayLocations();
-                } catch (error) {
-                    console.error(`Error deleting trip ${tripIndex} for user ${userId}:`, error);
+            try {
+                const response = await fetch(`${backendUrl}/locations/trip/${userId}/${tripIndex}`, { method: 'DELETE' });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
-            } else {
-                alert('Incorrect password!');
+                console.log(`Deleted trip ${tripIndex} for user ${userId}`);
+                loadAndDisplayLocations();
+            } catch (error) {
+                console.error(`Error deleting trip ${tripIndex} for user ${userId}:`, error);
             }
         }
 
