@@ -301,6 +301,15 @@
                         map.fitBounds(L.latLngBounds(trips[trips.length - 1].map(loc => loc.latLng)));
                     };
                     tripCell.appendChild(showTripButton);
+
+                    const deleteTripButton = document.createElement('button');
+                    deleteTripButton.textContent = 'Delete Trip';
+                    deleteTripButton.classList.add('delete-trip-button');
+                    deleteTripButton.onclick = () => {
+                        scrollToTop();
+                        deleteTrip(location.id, trips.length - 1);
+                    };
+                    tripCell.appendChild(deleteTripButton);
                 } else {
                     const placeholder = document.createElement('span');
                     placeholder.innerHTML = '<b>--------</b>';
@@ -354,6 +363,32 @@
                 loadAndDisplayLocations();
             } catch (error) {
                 console.error(`Error deleting location at index ${index}:`, error);
+            }
+        }
+
+        async function deleteUser(userId) {
+            try {
+                const response = await fetch(`${backendUrl}/locations/user/${userId}`, { method: 'DELETE' });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                console.log(`Deleted all locations for user ${userId}`);
+                loadAndDisplayLocations();
+            } catch (error) {
+                console.error(`Error deleting locations for user ${userId}:`, error);
+            }
+        }
+
+        async function deleteTrip(userId, tripIndex) {
+            try {
+                const response = await fetch(`${backendUrl}/locations/trip/${userId}/${tripIndex}`, { method: 'DELETE' });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                console.log(`Deleted trip ${tripIndex} for user ${userId}`);
+                loadAndDisplayLocations();
+            } catch (error) {
+                console.error(`Error deleting trip ${tripIndex} for user ${userId}:`, error);
             }
         }
 
