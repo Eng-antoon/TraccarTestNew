@@ -89,6 +89,38 @@ def delete_location(index):
     else:
         return jsonify({'status': 'record not found'}), 404
 
+@app.route('/locations/user/<user_id>', methods=['DELETE'])
+def delete_user_locations(user_id):
+    global location_updates
+    location_updates = [update for update in location_updates if update['id'] != user_id]
+    return jsonify({'status': f'all records for user {user_id} deleted'}), 200
+
+@app.route('/locations/trip/<user_id>/<trip_index>', methods=['DELETE'])
+def delete_trip(user_id, trip_index):
+    global location_updates
+    user_updates = [update for update in location_updates if update['id'] == user_id]
+    trips = []
+    current_trip = []
+    last_timestamp = None
+
+    for update in user_updates:
+        current_timestamp = datetime.strptime(update['timestamp'], '%Y-%m-%d %H:%M:%S')
+        if last_timestamp and (current_timestamp - last_timestamp).total_seconds() > 15 * 60:
+            trips.append(current_trip)
+            current_trip = []
+        current_trip.append(update)
+        last_timestamp = current_timestamp
+
+    if current_trip:
+        trips.append(current_trip)
+
+    if 0 <= int(trip_index) < len(trips):
+        trip_to_delete = trips[int(trip_index)]
+        location_updates = [update for update in location_updates if update not in trip_to_delete]
+        return jsonify({'status': f'trip {trip_index} for user {user_id} deleted'}), 200
+    else:
+        return jsonify({'status': 'trip not found'}), 404
+
 @app.route('/')
 def serve_index():
     return send_from_directory(os.getcwd(), 'index.html')
