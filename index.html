@@ -110,13 +110,26 @@
             loadAndDisplayLocations();
         }
 
+        function sortLocations(locations) {
+            // Sort by user and then by timestamp within each user
+            locations.sort((a, b) => {
+                if (a.id === b.id) {
+                    return new Date(a.timestamp) - new Date(b.timestamp);
+                }
+                return a.id.localeCompare(b.id);
+            });
+        }
+
         function loadAndDisplayLocations() {
             fetchLocations().then(locations => {
                 if (!locations) {
                     console.error('No locations found');
                     return;
                 }
-                
+
+                // Sort locations by user and timestamp
+                sortLocations(locations);
+
                 const tableBody = document.getElementById('locationTable').getElementsByTagName('tbody')[0];
                 tableBody.innerHTML = ''; // Clear existing table data
 
@@ -182,7 +195,7 @@
 
                     // Trip column
                     const tripsLength = trips[trips.length - 1].length;
-                    if (tripsLength > 1 && trips[trips.length - 1][tripsLength - 1].timestamp === location.timestamp) {
+                    if (tripsLength === 1) {
                         const showTripButton = document.createElement('button');
                         showTripButton.textContent = 'Show Trip';
                         showTripButton.classList.add('show-trip-button');
