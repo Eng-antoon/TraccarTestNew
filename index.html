@@ -74,16 +74,24 @@
         </tbody>
     </table>
     <script>
+        const backendUrl = 'https://traccartestnew.onrender.com';
+
         let map;
         let markers = [];
         let polylines = [];
 
-        // Replace with your actual Render backend URL
-        const backendUrl = 'https://traccartestnew.onrender.com';
-
         async function fetchLocations() {
-            const response = await fetch(`${backendUrl}/locations`);
-            return await response.json();
+            try {
+                const response = await fetch(`${backendUrl}/locations`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                console.log('Fetched locations:', data);
+                return data;
+            } catch (error) {
+                console.error('Error fetching locations:', error);
+            }
         }
 
         function initMap() {
@@ -98,6 +106,11 @@
 
         function loadAndDisplayLocations() {
             fetchLocations().then(locations => {
+                if (!locations) {
+                    console.error('No locations found');
+                    return;
+                }
+                
                 const tableBody = document.getElementById('locationTable').getElementsByTagName('tbody')[0];
                 tableBody.innerHTML = ''; // Clear existing table data
 
@@ -181,13 +194,29 @@
         }
 
         async function deleteAll() {
-            await fetch(`${backendUrl}/locations`, { method: 'DELETE' });
-            loadAndDisplayLocations();
+            try {
+                const response = await fetch(`${backendUrl}/locations`, { method: 'DELETE' });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                console.log('Deleted all locations');
+                loadAndDisplayLocations();
+            } catch (error) {
+                console.error('Error deleting all locations:', error);
+            }
         }
 
         async function deleteLocation(index) {
-            await fetch(`${backendUrl}/locations/${index}`, { method: 'DELETE' });
-            loadAndDisplayLocations();
+            try {
+                const response = await fetch(`${backendUrl}/locations/${index}`, { method: 'DELETE' });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                console.log(`Deleted location at index ${index}`);
+                loadAndDisplayLocations();
+            } catch (error) {
+                console.error(`Error deleting location at index ${index}:`, error);
+            }
         }
 
         window.onload = initMap;
