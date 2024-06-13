@@ -37,19 +37,24 @@ def log_location():
     cumulative_distance = 0
 
     if location_updates:
-        last_update = location_updates[-1]
-        last_lat = float(last_update['lat'])
-        last_lon = float(last_update['lon'])
-        last_timestamp = datetime.strptime(last_update['timestamp'], '%Y-%m-%d %H:%M:%S')
-        current_timestamp = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
+        user_updates = [update for update in location_updates if update['id'] == loc_id]
+        if user_updates:
+            last_update = user_updates[-1]
+            last_lat = float(last_update['lat'])
+            last_lon = float(last_update['lon'])
+            last_timestamp = datetime.strptime(last_update['timestamp'], '%Y-%m-%d %H:%M:%S')
+            current_timestamp = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
 
-        distance = haversine(last_lat, last_lon, float(lat), float(lon))
-        cumulative_distance = last_update.get('cumulative_distance', 0) + distance
-        time_diff = (current_timestamp - last_timestamp).total_seconds() / 3600  # Time difference in hours
-        if time_diff > 0:
-            speed = distance / time_diff
-    else:
-        cumulative_distance = distance
+            # Check if it's a new trip (more than 15 minutes since the last update)
+            time_diff = (current_timestamp - last_timestamp).total_seconds()
+            if time_diff > 15 * 60:
+                cumulative_distance = 0
+            else:
+                distance = haversine(last_lat, last_lon, float(lat), float(lon))
+                cumulative_distance = last_update.get('cumulative_distance', 0) + distance
+                speed = (distance / (time_diff / 3600)) if time_diff > 0 else 0
+        else:
+            cumulative_distance = distance
 
     print(f"Received data - id: {loc_id}, lat: {lat}, lon: {lon}, timestamp: {timestamp}, distance: {distance:.2f} km, cumulative_distance: {cumulative_distance:.2f} km, speed: {speed:.2f} km/h")
 
@@ -91,4 +96,3 @@ def serve_index():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
-
