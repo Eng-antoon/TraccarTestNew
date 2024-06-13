@@ -49,6 +49,10 @@
             background-color: #ff9800; /* Orange */
             color: white;
         }
+        .action-buttons .show-trip-button {
+            background-color: #9C27B0; /* Purple */
+            color: white;
+        }
     </style>
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 </head>
@@ -68,6 +72,7 @@
                 <th>Timestamp</th>
                 <th>Action</th>
                 <th>Delete</th>
+                <th>Trip</th> <!-- New column for Show Trip button -->
             </tr>
         </thead>
         <tbody>
@@ -147,6 +152,7 @@
                     const timestampCell = row.insertCell(3);
                     const actionCell = row.insertCell(4);
                     const deleteCell = row.insertCell(5);
+                    const tripCell = row.insertCell(6); // New cell for Show Trip button
 
                     idCell.textContent = location.id;
                     latCell.textContent = location.lat;
@@ -168,6 +174,22 @@
                     deleteButton.classList.add('delete-button');
                     deleteButton.onclick = () => deleteLocation(index);
                     deleteCell.appendChild(deleteButton);
+
+                    // Trip column
+                    const tripsLength = trips[trips.length - 1].length;
+                    if (tripsLength > 1 && trips[trips.length - 1][tripsLength - 1].timestamp === location.timestamp) {
+                        const showTripButton = document.createElement('button');
+                        showTripButton.textContent = 'Show Trip';
+                        showTripButton.classList.add('show-trip-button');
+                        showTripButton.onclick = () => {
+                            map.fitBounds(L.latLngBounds(trips[trips.length - 1].map(loc => loc.latLng)));
+                        };
+                        tripCell.appendChild(showTripButton);
+                    } else {
+                        const placeholder = document.createElement('span');
+                        placeholder.innerHTML = '<b>--------</b>';
+                        tripCell.appendChild(placeholder);
+                    }
                 });
 
                 // Draw polylines for each ID group and separate trips
