@@ -12,12 +12,12 @@ location_updates = []
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371.0  # Radius of the Earth in kilometers
     lat1 = math.radians(lat1)
-    lon1 = math.radians(lat1)
+    lon1 = math.radians(lon1)
     lat2 = math.radians(lat2)
-    lon2 = math.radians(lat2)
+    lon2 = math.radians(lon2)
     
     dlat = lat2 - lat1
-    dlon = lon2 - lat1
+    dlon = lon2 - lon1
     
     a = math.sin(dlat / 2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2)**2
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
@@ -27,38 +27,39 @@ def haversine(lat1, lon1, lat2, lon2):
 
 @app.route('/log_location', methods=['POST'])
 def log_location():
-    user_id = request.args.get('id') or request.form.get('id')
-    lat = float(request.args.get('lat') or request.form.get('lat'))
-    lon = float(request.args.get('lon') or request.form.get('lon'))
+    loc_id = request.args.get('id') or request.form.get('id')
+    lat = request.args.get('lat') or request.form.get('lat')
+    lon = request.args.get('lon') or request.form.get('lon')
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     distance = 0
     speed = 0
     cumulative_distance = 0
 
-    last_update = next((update for update in location_updates if update['user_id'] == user_id), None)
-    
-    if last_update:
-        last_lat = last_update['lat']
-        last_lon = last_update['lon']
-        last_timestamp = datetime.strptime(last_update['timestamp'], '%Y-%m-%d %H:%M:%S')
-        current_timestamp = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
+    if location_updates:
+        user_updates = [update for update in location_updates if update['id'] == loc_id]
+        if user_updates:
+            last_update = user_updates[-1]
+            last_lat = float(last_update['lat'])
+            last_lon = float(last_update['lon'])
+            last_timestamp = datetime.strptime(last_update['timestamp'], '%Y-%m-%d %H:%M:%S')
+            current_timestamp = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
 
-        # Check if it's a new trip (more than 15 minutes since the last update)
-        time_diff = (current_timestamp - last_timestamp).total_seconds()
-        if time_diff > 15 * 60:
-            cumulative_distance = 0
+            # Check if it's a new trip (more than 15 minutes since the last update)
+            time_diff = (current_timestamp - last_timestamp).total_seconds()
+            if time_diff > 15 * 60:
+                cumulative_distance = 0
+            else:
+                distance = haversine(last_lat, last_lon, float(lat), float(lon))
+                cumulative_distance = last_update.get('cumulative_distance', 0) + distance
+                speed = (distance / (time_diff / 3600)) if time_diff > 0 else 0
         else:
-            distance = haversine(last_lat, last_lon, lat, lon)
-            cumulative_distance = last_update['cumulative_distance'] + distance
-            speed = (distance / (time_diff / 3600)) if time_diff > 0 else 0
+            cumulative_distance = distance
 
-    # Ignore records with speed less than 0.3 km/h
-    if speed < 0.3:
-        return jsonify({'status': 'ignored', 'reason': 'speed less than 0.3 km/h'}), 200
+    print(f"Received data - id: {loc_id}, lat: {lat}, lon: {lon}, timestamp: {timestamp}, distance: {distance:.2f} km, cumulative_distance: {cumulative_distance:.2f} km, speed: {speed:.2f} km/h")
 
     update = {
-        'user_id': user_id,
+        'id': loc_id,
         'lat': lat,
         'lon': lon,
         'timestamp': timestamp,
@@ -91,13 +92,13 @@ def delete_location(index):
 @app.route('/locations/user/<user_id>', methods=['DELETE'])
 def delete_user_locations(user_id):
     global location_updates
-    location_updates = [update for update in location_updates if update['user_id'] != user_id]
+    location_updates = [update for update in location_updates if update['id'] != user_id]
     return jsonify({'status': f'all records for user {user_id} deleted'}), 200
 
 @app.route('/locations/trip/<user_id>/<trip_index>', methods=['DELETE'])
 def delete_trip(user_id, trip_index):
     global location_updates
-    user_updates = [update for update in location_updates if update['user_id'] == user_id]
+    user_updates = [update for update in location_updates if update['id'] == user_id]
     trips = []
     current_trip = []
     last_timestamp = None
