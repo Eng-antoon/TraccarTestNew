@@ -3,6 +3,7 @@ from flask_cors import CORS
 from datetime import datetime
 import sqlite3
 import os
+import math
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -77,6 +78,10 @@ def log_location():
             distance = haversine(last_lat, last_lon, lat, lon)
             cumulative_distance = last_update[6] + distance
             speed = (distance / (time_diff / 3600)) if time_diff > 0 else 0
+
+    # Ignore records with speed less than 0.3 km/h
+    if speed < 0.3:
+        return jsonify({'status': 'ignored', 'reason': 'speed less than 0.3 km/h'}), 200
 
     query_db('''
         INSERT INTO locations (user_id, lat, lon, timestamp, distance, cumulative_distance, speed)
