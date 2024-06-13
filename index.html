@@ -4,27 +4,43 @@
     <title>Location Updates</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f8ff;
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+            margin-top: 20px;
+            color: #444;
+        }
         #map {
             height: 500px;
             width: 100%;
             margin-bottom: 20px;
         }
         table {
-            width: 100%;
+            width: 90%;
+            margin: 0 auto;
             border-collapse: collapse;
             margin-top: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
         table, th, td {
-            border: 1px solid black;
+            border: 1px solid #ddd;
         }
         th, td {
             padding: 15px;
             text-align: left;
         }
         th {
-            background-color: #f2f2f2;
+            background-color: #4CAF50;
+            color: white;
         }
         .button-container {
+            text-align: center;
             margin-bottom: 20px;
         }
         .button-container button, .action-buttons button {
@@ -32,26 +48,42 @@
             font-size: 16px;
             margin: 5px;
             cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s ease, transform 0.3s ease;
         }
         .button-container .show-all-button {
-            background-color: #4CAF50; /* Green */
+            background-color: #4CAF50;
             color: white;
         }
         .button-container .delete-all-button {
-            background-color: #f44336; /* Red */
+            background-color: #f44336;
             color: white;
         }
         .action-buttons .show-button {
-            background-color: #2196F3; /* Blue */
+            background-color: #2196F3;
             color: white;
         }
         .action-buttons .delete-button {
-            background-color: #ff9800; /* Orange */
+            background-color: #ff9800;
             color: white;
         }
         .action-buttons .show-trip-button {
-            background-color: #9C27B0; /* Purple */
+            background-color: #9C27B0;
             color: white;
+        }
+        .button-container button:hover, .action-buttons button:hover {
+            transform: scale(1.05);
+        }
+        .button-container button:active, .action-buttons button:active {
+            transform: scale(1);
+        }
+        .button-container button, .action-buttons button {
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: box-shadow 0.3s ease, transform 0.3s ease;
+        }
+        .button-container button:hover, .action-buttons button:hover {
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.2);
         }
     </style>
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
@@ -59,8 +91,8 @@
 <body>
     <h1>Location Updates</h1>
     <div class="button-container">
-        <button class="show-all-button" onclick="showAll()">Show All</button>
-        <button class="delete-all-button" onclick="deleteAll()">Delete All</button>
+        <button class="show-all-button" onclick="scrollToTop(); showAll();">Show All</button>
+        <button class="delete-all-button" onclick="scrollToTop(); deleteAll();">Delete All</button>
     </div>
     <div id="map"></div>
     <table id="locationTable">
@@ -181,6 +213,7 @@
                     showButton.textContent = 'Show';
                     showButton.classList.add('show-button');
                     showButton.onclick = () => {
+                        scrollToTop();
                         map.setView(latLng, 13);
                         const marker = L.marker(latLng).addTo(map).bindPopup(`ID: ${location.id}<br>Timestamp: ${location.timestamp}`).openPopup();
                         markers.push(marker);
@@ -190,18 +223,21 @@
                     const deleteButton = document.createElement('button');
                     deleteButton.textContent = 'Delete';
                     deleteButton.classList.add('delete-button');
-                    deleteButton.onclick = () => deleteLocation(index);
+                    deleteButton.onclick = () => {
+                        scrollToTop();
+                        deleteLocation(index);
+                    };
                     deleteCell.appendChild(deleteButton);
 
                     // Trip column
                     const tripsLength = trips[trips.length - 1].length;
-                    if (tripsLength === 1) {
+                    if (tripsLength > 1 && trips[trips.length - 1][tripsLength - 1].timestamp === location.timestamp) {
                         const showTripButton = document.createElement('button');
                         showTripButton.textContent = 'Show Trip';
                         showTripButton.classList.add('show-trip-button');
                         showTripButton.onclick = () => {
+                            scrollToTop();
                             map.fitBounds(L.latLngBounds(trips[trips.length - 1].map(loc => loc.latLng)));
-                            window.scrollTo({ top: document.getElementById('map').offsetTop, behavior: 'smooth' });
                         };
                         tripCell.appendChild(showTripButton);
                     } else {
@@ -258,6 +294,10 @@
             } catch (error) {
                 console.error(`Error deleting location at index ${index}:`, error);
             }
+        }
+
+        function scrollToTop() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         window.onload = initMap;
