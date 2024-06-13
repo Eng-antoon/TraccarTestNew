@@ -56,11 +56,6 @@
             background-color: #4CAF50;
             color: white;
         }
-        /* Commented out Delete All button */
-        /* .button-container .delete-all-button {
-            background-color: #f44336;
-            color: white;
-        } */
         .action-buttons .show-button {
             background-color: #2196F3;
             color: white;
@@ -107,8 +102,6 @@
     <h1>Location Updates</h1>
     <div class="button-container">
         <button class="show-all-button" onclick="scrollToTop(); showAll();">Show All</button>
-        <!-- Commented out Delete All button -->
-        <!-- <button class="delete-all-button" onclick="scrollToTop(); deleteAll();">Delete All</button> -->
     </div>
     <div class="filter-container">
         <label for="userFilter">Filter by User: </label>
@@ -153,7 +146,7 @@
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 const data = await response.json();
-                console.log('Fetched locations:', data);
+                console.log('Fetched locations:', data); // Debug statement
                 return data;
             } catch (error) {
                 console.error('Error fetching locations:', error);
@@ -195,7 +188,7 @@
 
         function updateFilterOptions(locations) {
             const userFilter = document.getElementById('userFilter');
-            const uniqueUsers = [...new Set(locations.map(loc => loc.id))];
+            const uniqueUsers = [...new Set(locations.map(loc => loc.user_id))];
             uniqueUsers.forEach(user => {
                 const option = document.createElement('option');
                 option.value = user;
@@ -205,7 +198,7 @@
         }
 
         function displayFilteredLocations() {
-            const locations = allLocations.filter(loc => currentUserFilter === 'all' || loc.id === currentUserFilter);
+            const locations = allLocations.filter(loc => currentUserFilter === 'all' || loc.user_id === currentUserFilter);
 
             sortLocations(locations);
 
@@ -226,21 +219,21 @@
             let isEvenRow = true;
 
             locations.forEach((location, index) => {
-                var latLng = L.latLng(parseFloat(location.lat), parseFloat(location.lon));
+                var latLng = L.latLng(parseFloat(location[2]), parseFloat(location[3]));
                 bounds.extend(latLng); // Extend bounds to include this location
 
                 // Group locations by ID and separate trips
-                if (!idToLocations[location.id]) {
-                    idToLocations[location.id] = [];
+                if (!idToLocations[location[1]]) {
+                    idToLocations[location[1]] = [];
                 }
-                const trips = idToLocations[location.id];
+                const trips = idToLocations[location[1]];
 
-                if (trips.length === 0 || new Date(location.timestamp) - new Date(trips[trips.length - 1][trips[trips.length - 1].length - 1].timestamp) > timeThreshold) {
+                if (trips.length === 0 || new Date(location[4]) - new Date(trips[trips.length - 1][trips[trips.length - 1].length - 1][4]) > timeThreshold) {
                     trips.push([]);
                 }
-                trips[trips.length - 1].push({ latLng, timestamp: location.timestamp });
+                trips[trips.length - 1].push({ latLng, timestamp: location[4] });
 
-                location.user = `User ${location.id}`; // Assign user ID
+                location.user = `User ${location[1]}`; // Assign user ID
 
                 // Check if new user group should start
                 if (currentUser !== location.user) {
@@ -265,13 +258,13 @@
                 const tripCell = row.insertCell(10); // New cell for Show Trip button
 
                 userCell.textContent = location.user;
-                idCell.textContent = location.id;
-                latCell.textContent = location.lat;
-                lonCell.textContent = location.lon;
-                timestampCell.textContent = location.timestamp;
-                distanceCell.textContent = location.distance.toFixed(2);
-                cumulativeDistanceCell.textContent = location.cumulative_distance.toFixed(2);
-                speedCell.textContent = location.speed.toFixed(2);
+                idCell.textContent = location[1];
+                latCell.textContent = location[2];
+                lonCell.textContent = location[3];
+                timestampCell.textContent = location[4];
+                distanceCell.textContent = parseFloat(location[5]).toFixed(2);
+                cumulativeDistanceCell.textContent = parseFloat(location[6]).toFixed(2);
+                speedCell.textContent = parseFloat(location[7]).toFixed(2);
 
                 const showButton = document.createElement('button');
                 showButton.textContent = 'Show';
@@ -279,7 +272,7 @@
                 showButton.onclick = () => {
                     scrollToTop();
                     map.setView(latLng, 13);
-                    const marker = L.marker(latLng).addTo(map).bindPopup(`ID: ${location.id}<br>Timestamp: ${location.timestamp}`).openPopup();
+                    const marker = L.marker(latLng).addTo(map).bindPopup(`ID: ${location[1]}<br>Timestamp: ${location[4]}`).openPopup();
                     markers.push(marker);
                 };
                 actionCell.appendChild(showButton);
@@ -290,7 +283,7 @@
                 deleteButton.onclick = () => {
                     if (prompt('Enter password to delete:') === deletePassword) {
                         scrollToTop();
-                        deleteLocation(location.id);
+                        deleteLocation(location[0]);
                     } else {
                         alert('Incorrect password!');
                     }
@@ -299,7 +292,7 @@
 
                 // Trip column
                 const tripsLength = trips[trips.length - 1].length;
-                if (tripsLength === 1 || (tripsLength > 1 && (index === 0 || new Date(location.timestamp) - new Date(locations[index - 1].timestamp) > timeThreshold))) {
+                if (tripsLength === 1 || (tripsLength > 1 && (index === 0 || new Date(location[4]) - new Date(locations[index - 1][4]) > timeThreshold))) {
                     const showTripButton = document.createElement('button');
                     showTripButton.textContent = 'Show Trip';
                     showTripButton.classList.add('show-trip-button');
@@ -315,7 +308,7 @@
                     deleteTripButton.onclick = () => {
                         if (prompt('Enter password to delete:') === deletePassword) {
                             scrollToTop();
-                            deleteTrip(location.id, trips.length - 1);
+                            deleteTrip(location[1], trips.length - 1);
                         } else {
                             alert('Incorrect password!');
                         }
