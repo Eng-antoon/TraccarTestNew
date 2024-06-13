@@ -1,13 +1,38 @@
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from datetime import datetime
+import sqlite3
 import os
-import math
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
-location_updates = []
+DATABASE = 'locations.db'
+
+def init_db():
+    with sqlite3.connect(DATABASE) as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS locations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT,
+                lat REAL,
+                lon REAL,
+                timestamp TEXT,
+                distance REAL,
+                cumulative_distance REAL,
+                speed REAL
+            )
+        ''')
+        conn.commit()
+
+def query_db(query, args=(), one=False):
+    with sqlite3.connect(DATABASE) as conn:
+        cursor = conn.cursor()
+        cursor.execute(query, args)
+        rv = cursor.fetchall()
+        conn.commit()
+        return (rv[0] if rv else None) if one else rv
 
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371.0  # Radius of the Earth in kilometers
@@ -27,39 +52,39 @@ def haversine(lat1, lon1, lat2, lon2):
 
 @app.route('/log_location', methods=['POST'])
 def log_location():
-    loc_id = request.args.get('id') or request.form.get('id')
-    lat = request.args.get('lat') or request.form.get('lat')
-    lon = request.args.get('lon') or request.form.get('lon')
+    user_id = request.args.get('id') or request.form.get('id')
+    lat = float(request.args.get('lat') or request.form.get('lat'))
+    lon = float(request.args.get('lon') or request.form.get('lon'))
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     distance = 0
     speed = 0
     cumulative_distance = 0
 
-    if location_updates:
-        user_updates = [update for update in location_updates if update['id'] == loc_id]
-        if user_updates:
-            last_update = user_updates[-1]
-            last_lat = float(last_update['lat'])
-            last_lon = float(last_update['lon'])
-            last_timestamp = datetime.strptime(last_update['timestamp'], '%Y-%m-%d %H:%M:%S')
-            current_timestamp = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
+    last_update = query_db('SELECT * FROM locations WHERE user_id = ? ORDER BY timestamp DESC LIMIT 1', [user_id], one=True)
+    
+    if last_update:
+        last_lat = last_update[2]
+        last_lon = last_update[3]
+        last_timestamp = datetime.strptime(last_update[4], '%Y-%m-%d %H:%M:%S')
+        current_timestamp = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
 
-            # Check if it's a new trip (more than 15 minutes since the last update)
-            time_diff = (current_timestamp - last_timestamp).total_seconds()
-            if time_diff > 15 * 60:
-                cumulative_distance = 0
-            else:
-                distance = haversine(last_lat, last_lon, float(lat), float(lon))
-                cumulative_distance = last_update.get('cumulative_distance', 0) + distance
-                speed = (distance / (time_diff / 3600)) if time_diff > 0 else 0
+        # Check if it's a new trip (more than 15 minutes since the last update)
+        time_diff = (current_timestamp - last_timestamp).total_seconds()
+        if time_diff > 15 * 60:
+            cumulative_distance = 0
         else:
-            cumulative_distance = distance
+            distance = haversine(last_lat, last_lon, lat, lon)
+            cumulative_distance = last_update[6] + distance
+            speed = (distance / (time_diff / 3600)) if time_diff > 0 else 0
 
-    print(f"Received data - id: {loc_id}, lat: {lat}, lon: {lon}, timestamp: {timestamp}, distance: {distance:.2f} km, cumulative_distance: {cumulative_distance:.2f} km, speed: {speed:.2f} km/h")
+    query_db('''
+        INSERT INTO locations (user_id, lat, lon, timestamp, distance, cumulative_distance, speed)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', [user_id, lat, lon, timestamp, distance, cumulative_distance, speed])
 
     update = {
-        'id': loc_id,
+        'user_id': user_id,
         'lat': lat,
         'lon': lon,
         'timestamp': timestamp,
@@ -67,44 +92,37 @@ def log_location():
         'cumulative_distance': cumulative_distance,
         'speed': speed
     }
-    location_updates.append(update)
     return jsonify(update), 200
 
 @app.route('/locations', methods=['GET'])
 def get_locations():
-    return jsonify(location_updates), 200
+    locations = query_db('SELECT * FROM locations')
+    return jsonify(locations), 200
 
 @app.route('/locations', methods=['DELETE'])
 def delete_all_locations():
-    global location_updates
-    location_updates = []
+    query_db('DELETE FROM locations')
     return jsonify({'status': 'all records deleted'}), 200
 
 @app.route('/locations/<int:index>', methods=['DELETE'])
 def delete_location(index):
-    global location_updates
-    if 0 <= index < len(location_updates):
-        del location_updates[index]
-        return jsonify({'status': 'record deleted'}), 200
-    else:
-        return jsonify({'status': 'record not found'}), 404
+    query_db('DELETE FROM locations WHERE id = ?', [index])
+    return jsonify({'status': 'record deleted'}), 200
 
 @app.route('/locations/user/<user_id>', methods=['DELETE'])
 def delete_user_locations(user_id):
-    global location_updates
-    location_updates = [update for update in location_updates if update['id'] != user_id]
+    query_db('DELETE FROM locations WHERE user_id = ?', [user_id])
     return jsonify({'status': f'all records for user {user_id} deleted'}), 200
 
 @app.route('/locations/trip/<user_id>/<trip_index>', methods=['DELETE'])
 def delete_trip(user_id, trip_index):
-    global location_updates
-    user_updates = [update for update in location_updates if update['id'] == user_id]
+    user_updates = query_db('SELECT * FROM locations WHERE user_id = ? ORDER BY timestamp', [user_id])
     trips = []
     current_trip = []
     last_timestamp = None
 
     for update in user_updates:
-        current_timestamp = datetime.strptime(update['timestamp'], '%Y-%m-%d %H:%M:%S')
+        current_timestamp = datetime.strptime(update[4], '%Y-%m-%d %H:%M:%S')
         if last_timestamp and (current_timestamp - last_timestamp).total_seconds() > 15 * 60:
             trips.append(current_trip)
             current_trip = []
@@ -116,7 +134,8 @@ def delete_trip(user_id, trip_index):
 
     if 0 <= int(trip_index) < len(trips):
         trip_to_delete = trips[int(trip_index)]
-        location_updates = [update for update in location_updates if update not in trip_to_delete]
+        for record in trip_to_delete:
+            query_db('DELETE FROM locations WHERE id = ?', [record[0]])
         return jsonify({'status': f'trip {trip_index} for user {user_id} deleted'}), 200
     else:
         return jsonify({'status': 'trip not found'}), 404
@@ -126,5 +145,6 @@ def serve_index():
     return send_from_directory(os.getcwd(), 'index.html')
 
 if __name__ == '__main__':
+    init_db()
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
