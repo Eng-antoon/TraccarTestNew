@@ -77,9 +77,12 @@
         let map;
         let markers = [];
         let polylines = [];
-        
+
+        // Replace with your actual Render backend URL
+        const backendUrl = 'https://traccartestnew.onrender.com';
+
         async function fetchLocations() {
-            const response = await fetch('/locations');
+            const response = await fetch(`${backendUrl}/locations`);
             return await response.json();
         }
 
@@ -178,12 +181,12 @@
         }
 
         async function deleteAll() {
-            await fetch('/locations', { method: 'DELETE' });
+            await fetch(`${backendUrl}/locations`, { method: 'DELETE' });
             loadAndDisplayLocations();
         }
 
         async function deleteLocation(index) {
-            await fetch(`/locations/${index}`, { method: 'DELETE' });
+            await fetch(`${backendUrl}/locations/${index}`, { method: 'DELETE' });
             loadAndDisplayLocations();
         }
 
@@ -191,4 +194,3 @@
     </script>
 </body>
 </html>
-
