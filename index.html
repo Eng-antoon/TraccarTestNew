@@ -66,13 +66,14 @@
     <table id="locationTable">
         <thead>
             <tr>
+                <th>User</th>
                 <th>ID</th>
                 <th>Latitude</th>
                 <th>Longitude</th>
                 <th>Timestamp</th>
                 <th>Action</th>
                 <th>Delete</th>
-                <th>Trip</th> <!-- New column for Show Trip button -->
+                <th>Trip</th>
             </tr>
         </thead>
         <tbody>
@@ -144,16 +145,20 @@
                     }
                     trips[trips.length - 1].push({ latLng, timestamp: location.timestamp });
 
+                    location.user = `User ${location.id}`; // Assign user ID
+
                     // Add row to the table
                     const row = tableBody.insertRow();
-                    const idCell = row.insertCell(0);
-                    const latCell = row.insertCell(1);
-                    const lonCell = row.insertCell(2);
-                    const timestampCell = row.insertCell(3);
-                    const actionCell = row.insertCell(4);
-                    const deleteCell = row.insertCell(5);
-                    const tripCell = row.insertCell(6); // New cell for Show Trip button
+                    const userCell = row.insertCell(0); // New cell for user
+                    const idCell = row.insertCell(1);
+                    const latCell = row.insertCell(2);
+                    const lonCell = row.insertCell(3);
+                    const timestampCell = row.insertCell(4);
+                    const actionCell = row.insertCell(5);
+                    const deleteCell = row.insertCell(6);
+                    const tripCell = row.insertCell(7); // New cell for Show Trip button
 
+                    userCell.textContent = location.user;
                     idCell.textContent = location.id;
                     latCell.textContent = location.lat;
                     lonCell.textContent = location.lon;
@@ -183,6 +188,7 @@
                         showTripButton.classList.add('show-trip-button');
                         showTripButton.onclick = () => {
                             map.fitBounds(L.latLngBounds(trips[trips.length - 1].map(loc => loc.latLng)));
+                            window.scrollTo({ top: document.getElementById('map').offsetTop, behavior: 'smooth' });
                         };
                         tripCell.appendChild(showTripButton);
                     } else {
