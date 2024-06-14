@@ -165,18 +165,38 @@
         let allLocations = [];
         let currentUserFilter = 'all';
 
-        async function fetchLocations() {
+        async function fetchLocationsFromServer() {
             try {
                 const response = await fetch(`${backendUrl}/locations`);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 const data = await response.json();
-                console.log('Fetched locations:', data);
+                console.log('Fetched locations from server:', data);
                 return data;
             } catch (error) {
-                console.error('Error fetching locations:', error);
+                console.error('Error fetching locations from server:', error);
             }
+        }
+
+        async function fetchLocationsFromFirebase() {
+            try {
+                const querySnapshot = await getDocs(collection(db, "location_updates"));
+                const data = [];
+                querySnapshot.forEach((doc) => {
+                    data.push(doc.data());
+                });
+                console.log('Fetched locations from Firebase:', data);
+                return data;
+            } catch (error) {
+                console.error('Error fetching locations from Firebase:', error);
+            }
+        }
+
+        async function fetchLocations() {
+            const serverData = await fetchLocationsFromServer();
+            const firebaseData = await fetchLocationsFromFirebase();
+            return [...serverData, ...firebaseData];
         }
 
         function initMap() {
