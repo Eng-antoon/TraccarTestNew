@@ -39,12 +39,14 @@ def log_location():
     lon = request.args.get('lon') or request.form.get('lon')
     
     if not loc_id or not lat or not lon:
+        print('Error: id, lat, and lon are required')
         return jsonify({'error': 'id, lat, and lon are required'}), 400
 
     try:
         lat = float(lat)
         lon = float(lon)
     except ValueError:
+        print('Error: lat and lon must be valid numbers')
         return jsonify({'error': 'lat and lon must be valid numbers'}), 400
 
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -82,7 +84,11 @@ def log_location():
     location_updates.append(update)
 
     # Store the update in Firebase Firestore
-    db.collection('location_updates').add(update)
+    try:
+        db.collection('location_updates').add(update)
+        print('Successfully added to Firestore:', update)
+    except Exception as e:
+        print('Error adding to Firestore:', e)
 
     return jsonify(update), 200
 
