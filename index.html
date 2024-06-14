@@ -145,6 +145,7 @@
 
         // Initialize Firebase
         const app = firebase.initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
         const db = firebase.firestore();
 
         const deletePassword = "123456";
