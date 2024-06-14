@@ -3,18 +3,25 @@ from flask_cors import CORS
 from datetime import datetime
 import os
 import math
+import firebase_admin
+from firebase_admin import credentials, firestore
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
 location_updates = []
 
+# Initialize Firebase Admin SDK
+cred = credentials.Certificate("serviceAccountKey.json")
+firebase_admin.initialize_app(cred)
+db = firestore.client()
+
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371.0  # Radius of the Earth in kilometers
     lat1 = math.radians(lat1)
-    lon1 = math.radians(lon1)
+    lon1 = math.radians(lat1)
     lat2 = math.radians(lat2)
-    lon2 = math.radians(lon2)
+    lon2 = math.radians(lat2)
     
     dlat = lat2 - lat1
     dlon = lon2 - lon1
@@ -30,8 +37,17 @@ def log_location():
     loc_id = request.args.get('id') or request.form.get('id')
     lat = request.args.get('lat') or request.form.get('lat')
     lon = request.args.get('lon') or request.form.get('lon')
-    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    
+    if not loc_id or not lat or not lon:
+        return jsonify({'error': 'id, lat, and lon are required'}), 400
 
+    try:
+        lat = float(lat)
+        lon = float(lon)
+    except ValueError:
+        return jsonify({'error': 'lat and lon must be valid numbers'}), 400
+
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     distance = 0
     speed = 0
     cumulative_distance = 0
@@ -50,13 +66,9 @@ def log_location():
             if time_diff > 15 * 60:
                 cumulative_distance = 0
             else:
-                distance = haversine(last_lat, last_lon, float(lat), float(lon))
+                distance = haversine(last_lat, last_lon, lat, lon)
                 cumulative_distance = last_update.get('cumulative_distance', 0) + distance
                 speed = (distance / (time_diff / 3600)) if time_diff > 0 else 0
-        else:
-            cumulative_distance = distance
-
-    print(f"Received data - id: {loc_id}, lat: {lat}, lon: {lon}, timestamp: {timestamp}, distance: {distance:.2f} km, cumulative_distance: {cumulative_distance:.2f} km, speed: {speed:.2f} km/h")
 
     update = {
         'id': loc_id,
@@ -68,6 +80,10 @@ def log_location():
         'speed': speed
     }
     location_updates.append(update)
+
+    # Store the update in Firebase Firestore
+    db.collection('location_updates').add(update)
+
     return jsonify(update), 200
 
 @app.route('/locations', methods=['GET'])
@@ -95,7 +111,7 @@ def delete_user_locations(user_id):
     location_updates = [update for update in location_updates if update['id'] != user_id]
     return jsonify({'status': f'all records for user {user_id} deleted'}), 200
 
-@app.route('/locations/trip/<user_id>/<trip_index>', methods=['DELETE'])
+@app.route('/locations/trip/<user_id>/<int:trip_index>', methods=['DELETE'])
 def delete_trip(user_id, trip_index):
     global location_updates
     user_updates = [update for update in location_updates if update['id'] == user_id]
@@ -114,8 +130,8 @@ def delete_trip(user_id, trip_index):
     if current_trip:
         trips.append(current_trip)
 
-    if 0 <= int(trip_index) < len(trips):
-        trip_to_delete = trips[int(trip_index)]
+    if 0 <= trip_index < len(trips):
+        trip_to_delete = trips[trip_index]
         location_updates = [update for update in location_updates if update not in trip_to_delete]
         return jsonify({'status': f'trip {trip_index} for user {user_id} deleted'}), 200
     else:
