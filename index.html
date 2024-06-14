@@ -101,12 +101,34 @@
         }
     </style>
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script type="module">
+      // Import the functions you need from the SDKs you need
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+      import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+      // Your web app's Firebase configuration
+      const firebaseConfig = {
+        apiKey: "AIzaSyD_qMKZD4BzZQ8Kxi21aEzkl91CUPFiNaA",
+        authDomain: "traccarapp-8cbd9.firebaseapp.com",
+        projectId: "traccarapp-8cbd9",
+        storageBucket: "traccarapp-8cbd9.appspot.com",
+        messagingSenderId: "155751273132",
+        appId: "1:155751273132:web:81f556bce5a8baa55cc509",
+        measurementId: "G-79W0M3EDHY"
+      };
+
+      // Initialize Firebase
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+
+      // Now you can use Firestore in your application
+    </script>
 </head>
 <body>
     <h1>Location Updates</h1>
     <div class="button-container">
         <button class="show-all-button" onclick="scrollToTop(); showAll();">Show All</button>
-<!--         <button class="delete-all-button" onclick="scrollToTop(); deleteAll();">Delete All</button> -->
+        <!-- <button class="delete-all-button" onclick="scrollToTop(); deleteAll();">Delete All</button> -->
     </div>
     <div class="filter-container">
         <label for="userFilter">Filter by User: </label>
@@ -167,7 +189,7 @@
             loadAndDisplayLocations();
         }
 
-        function sortLocations(locations) {
+        function sortLocationsByUserAndTimestamp(locations) {
             // Sort by user and then by timestamp within each user
             locations.sort((a, b) => {
                 if (a.id === b.id) {
@@ -177,21 +199,21 @@
             });
         }
 
-        function loadAndDisplayLocations() {
-            fetchLocations().then(locations => {
-                if (!locations) {
-                    console.error('No locations found');
-                    return;
-                }
+        async function loadAndDisplayLocations() {
+            const locations = await fetchLocations();
+            if (!locations) {
+                console.error('No locations found');
+                return;
+            }
 
-                allLocations = locations;
-                updateFilterOptions(locations);
-                displayFilteredLocations();
-            });
+            allLocations = locations;
+            updateFilterOptions(locations);
+            displayFilteredLocations();
         }
 
         function updateFilterOptions(locations) {
             const userFilter = document.getElementById('userFilter');
+            userFilter.innerHTML = '<option value="all">All Users</option>'; // Reset options
             const uniqueUsers = [...new Set(locations.map(loc => loc.id))];
             uniqueUsers.forEach(user => {
                 const option = document.createElement('option');
@@ -204,7 +226,7 @@
         function displayFilteredLocations() {
             const locations = allLocations.filter(loc => currentUserFilter === 'all' || loc.id === currentUserFilter);
 
-            sortLocations(locations);
+            sortLocationsByUserAndTimestamp(locations);
 
             const tableBody = document.getElementById('locationTable').getElementsByTagName('tbody')[0];
             tableBody.innerHTML = ''; // Clear existing table data
@@ -214,8 +236,8 @@
             markers = [];
             polylines = [];
 
-            var bounds = L.latLngBounds(); // Initialize bounds
-            var idToLocations = {}; // Dictionary to group locations by ID and separate trips
+            const bounds = L.latLngBounds(); // Initialize bounds
+            const idToLocations = {}; // Dictionary to group locations by ID and separate trips
 
             const timeThreshold = 15 * 60 * 1000; // 15 minutes in milliseconds
 
@@ -223,7 +245,7 @@
             let isEvenRow = true;
 
             locations.forEach((location, index) => {
-                var latLng = L.latLng(parseFloat(location.lat), parseFloat(location.lon));
+                const latLng = L.latLng(parseFloat(location.lat), parseFloat(location.lon));
                 bounds.extend(latLng); // Extend bounds to include this location
 
                 // Group locations by ID and separate trips
@@ -318,11 +340,11 @@
             });
 
             // Draw polylines for each ID group and separate trips
-            for (var id in idToLocations) {
+            for (const id in idToLocations) {
                 idToLocations[id].forEach(trip => {
                     if (trip.length > 1) {
-                        var latLngs = trip.map(loc => loc.latLng);
-                        var polyline = L.polyline(latLngs, { color: 'black', weight: 4 }).addTo(map);
+                        const latLngs = trip.map(loc => loc.latLng);
+                        const polyline = L.polyline(latLngs, { color: 'black', weight: 4 }).addTo(map);
                         polylines.push(polyline);
                     }
                 });
