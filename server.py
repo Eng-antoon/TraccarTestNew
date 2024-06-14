@@ -11,16 +11,17 @@ CORS(app)  # Enable CORS for all routes
 
 # Firebase credentials JSON embedded directly
 firebase_credentials = {
-    "type": "service_account",
-    "project_id": "illa-traccartest",
-    "private_key_id": "414086cf6fcf638a955e625d743c6cbc0dd0f2da",
-    "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDJon54z//05IdQ\nBveYQxo5YPRAcWAqTANKksh3Ffrj4QcRWKhwK0VpYHp/qCwUbceW1KCryE1iNz9l\nRqLHw4De08Os/1bdskVlQOfI88GNuT73dXM/7OubwCpGdd3Mkd/lTl6S2tGRJLGu\nQ2YGma0VF8lGZtaq54/hw22BgE6Y7ziADsTccxWPjeK5Mk4VPk0n3m1CALGGMfc+\nnxEweoLgMIpgRZvbwYww9fY8iarh80sxeDOAPtpYRAYbbwGNkwCjx0vM1Jn6WdnE\nIXV3mQZznpbUZfWHfBAUcbaLRol8mkS8PfKgTHrUfHXy2Mhb++y2I/ZVIekMrBAB\nKLu03S/BAgMBAAECggEAAIWAkTxse4wpw225LzYhN7vF9fK1Hnbi3UsC5Lf0VamL\n1KInkV6zR8H9nx3mu0jLZtr27WrPtGzTJ6ZmnmClkS34CBcC+QDQiCICV3U173Fm\ntcoieaxZsaXuFg+Q+sn3y8aHnRaeyyLOqNY4ydSU64SLuzhh3sBJkXppapfT3DZk\n//i5bCrsq+f3UtKs8fU3nhs19S6cKYHc4Ar0EyVdpdcxyd/yo5RJNBUCZmww9l0M\nbp/LmZJIOrk5xfjRVA2WyZEuwz0sgx+YKddZ4mCIzdF4EuJx0n8t2y+Zj/YHC6Hx\nhGSLhLmf9l6JkIJLlS/YUWWihpNLmieY/5ggPyF5ZwKBgQDzDNbOSNjkqTDqjAlP\nVUHsJFEJ1vHXK/bNjNUVqRG0Ig1pSo3gvTk/dPYgo0Vce53LmMjogFim3RYk5az7\nCRB3pCAJB6Rjnwr5v7Hi+B7pHmPdCdHI4hogFAH6NiRIiVFbuVB44LO/OCkmDLj8\nXNyXVxVKkOP7sKy+jHuvKIVDLwKBgQDUYMGQCaN+7/jw8YDxtexoE6t/hWLpR1B8\nJlfGhHp835o/8Rzm4Lj1VbskPP/CnLBtNiuOaQuBQRl+vYy16RJBxw+69Z1U3ouc\nJmVqITRdvoouTrRVg2Xvc0maQh531dms2ItwR08y72TH5lYHrm3c711TGFXTARN5\n8dhVaUXADwKBgQC+X48dMvgYWuHCxX9BUZF6KpQDNgZluLzvEeGRvsTsKEQC9e+d\nWfmuV6m1tM1OfFEDuR+c5XMK+F8w9WmBk/7/B2JEUGUV1uxc5Sarlhd4F2K3LsrQ\nIzG9cI5/8sqGunAsfUGn/LEuFQo+EHcQzJfIPuChcE3yxdb4xcbXUtDW5wKBgA+1\nBDvR6qyltOSlB+NYkB52bfWleNZF9vbnoxBElgaMRw05mOiecC984rVgaY4MJqQ9\nIGWM8VPi667K+BAwJ7CDt28dYUB4oRywXknGIOhaAkBAg+fbKvvVq/jjsPst7sZw\n0YdBTuM2f16lc3Fn/iob7ewKXbaYWsdnEpfmjEkTAoGAOpRClUbVnbHQIXY4E8Xt\n5BDMmomMyvhtSm0xBstkcOfI/vUdCpLocE48gGLh8v9c4PL6jcA4qA6mM/t/I0c3\npyoC1yFQqlAnecZcM62K1XSjia6+hzWe5Sg3rpmFz4Mk85kxv+d/R7+xxuPzz5ya\nqg0lELkb6a9G7WOlX4vcKUg=\n-----END PRIVATE KEY-----\n".replace("\\n", "\n"),
-    "client_email": "firebase-adminsdk-7yngb@illa-traccartest.iam.gserviceaccount.com",
-    "client_id": "114884629195270028026",
-    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-    "token_uri": "https://oauth2.googleapis.com/token",
-    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-    "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-7yngb@illa-traccartest.iam.gserviceaccount.com"
+  "type": "service_account",
+  "project_id": "illa-traccartest",
+  "private_key_id": "414086cf6fcf638a955e625d743c6cbc0dd0f2da",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDJon54z//05IdQ\nBveYQxo5YPRAcWAqTANKksh3Ffrj4QcRWKhwK0VpYHp/qCwUbceW1KCryE1iNz9l\nRqLHw4De08Os/1bdskVlQOfI88GNuT73dXM/7OubwCpGdd3Mkd/lTl6S2tGRJLGu\nQ2YGma0VF8lGZtaq54/hw22BgE6Y7ziADsTccxWPjeK5Mk4VPk0n3m1CALGGMfc+\nnxEweoLgMIpgRZvbwYww9fY8iarh80sxeDOAPtpYRAYbbwGNkwCjx0vM1Jn6WdnE\nIXV3mQZznpbUZfWHfBAUcbaLRol8mkS8PfKgTHrUfHXy2Mhb++y2I/ZVIekMrBAB\nKLu03S/BAgMBAAECggEAAIWAkTxse4wpw225LzYhN7vF9fK1Hnbi3UsC5Lf0VamL\n1KInkV6zR8H9nx3mu0jLZtr27WrPtGzTJ6ZmnmClkS34CBcC+QDQiCICV3U173Fm\ntcoieaxZsaXuFg+Q+sn3y8aHnRaeyyLOqNY4ydSU64SLuzhh3sBJkXppapfT3DZk\n//i5bCrsq+f3UtKs8fU3nhs19S6cKYHc4Ar0EyVdpdcxyd/yo5RJNBUCZmww9l0M\nbp/LmZJIOrk5xfjRVA2WyZEuwz0sgx+YKddZ4mCIzdF4EuJx0n8t2y+Zj/YHC6Hx\nhGSLhLmf9l6JkIJLlS/YUWWihpNLmieY/5ggPyF5ZwKBgQDzDNbOSNjkqTDqjAlP\nVUHsJFEJ1vHXK/bNjNUVqRG0Ig1pSo3gvTk/dPYgo0Vce53LmMjogFim3RYk5az7\nCRB3pCAJB6Rjnwr5v7Hi+B7pHmPdCdHI4hogFAH6NiRIiVFbuVB44LO/OCkmDLj8\nXNyXVxVKkOP7sKy+jHuvKIVDLwKBgQDUYMGQCaN+7/jw8YDxtexoE6t/hWLpR1B8\nJlfGhHp835o/8Rzm4Lj1VbskPP/CnLBtNiuOaQuBQRl+vYy16RJBxw+69Z1U3ouc\nJmVqITRdvoouTrRVg2Xvc0maQh531dms2ItwR08y72TH5lYHrm3c711TGFXTARN5\n8dhVaUXADwKBgQC+X48dMvgYWuHCxX9BUZF6KpQDNgZluLzvEeGRvsTsKEQC9e+d\nWfmuV6m1tM1OfFEDuR+c5XMK+F8w9WmBk/7/B2JEUGUV1uxc5Sarlhd4F2K3LsrQ\nIzG9cI5/8sqGunAsfUGn/LEuFQo+EHcQzJfIPuChcE3yxdb4xcbXUtDW5wKBgA+1\nBDvR6qyltOSlB+NYkB52bfWleNZF9vbnoxBElgaMRw05mOiecC984rVgaY4MJqQ9\nIGWM8VPi667K+BAwJ7CDt28dYUB4oRywXknGIOhaAkBAg+fbKvvVq/jjsPst7sZw\n0YdBTuM2f16lc3Fn/iob7ewKXbaYWsdnEpfmjEkTAoGAOpRClUbVnbHQIXY4E8Xt\n5BDMmomMyvhtSm0xBstkcOfI/vUdCpLocE48gGLh8v9c4PL6jcA4qA6mM/t/I0c3\npyoC1yFQqlAnecZcM62K1XSjia6+hzWe5Sg3rpmFz4Mk85kxv+d/R7+xxuPzz5ya\nqg0lELkb6a9G7WOlX4vcKUg=\n-----END PRIVATE KEY-----\n",
+  "client_email": "firebase-adminsdk-7yngb@illa-traccartest.iam.gserviceaccount.com",
+  "client_id": "114884629195270028026",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-7yngb%40illa-traccartest.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
 }
 
 cred = credentials.Certificate(firebase_credentials)
