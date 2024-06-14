@@ -400,7 +400,9 @@
           displayFilteredLocations();
       }
 
-      window.onload = initMap;
+      window.addEventListener('DOMContentLoaded', (event) => {
+          initMap();
+      });
     </script>
 </body>
 </html>
