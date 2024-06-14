@@ -196,7 +196,7 @@
         async function fetchLocations() {
             const serverData = await fetchLocationsFromServer();
             const firebaseData = await fetchLocationsFromFirebase();
-            return [...serverData, ...firebaseData];
+            return [...(serverData || []), ...(firebaseData || [])];
         }
 
         function initMap() {
