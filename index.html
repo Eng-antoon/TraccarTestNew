@@ -162,6 +162,7 @@
       }
 
       function initMap() {
+          console.log('Initializing map...');
           const mapContainer = document.getElementById('map');
           if (!mapContainer) {
               console.error('Map container not found');
@@ -412,6 +413,7 @@
       }
 
       window.addEventListener('DOMContentLoaded', (event) => {
+          console.log('DOM fully loaded and parsed');
           initMap();
       });
     </script>
