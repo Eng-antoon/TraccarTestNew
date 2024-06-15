@@ -121,6 +121,12 @@
       const app = initializeApp(firebaseConfig);
       const db = getFirestore(app);
 
+      let map;
+      let markers = [];
+      let polylines = [];
+      let allLocations = [];
+      let currentUserFilter = 'all';
+
       async function fetchLocationsFromFirebase() {
           try {
               const querySnapshot = await getDocs(collection(db, "location_updates"));
@@ -156,6 +162,11 @@
       }
 
       function initMap() {
+          const mapContainer = document.getElementById('map');
+          if (!mapContainer) {
+              console.error('Map container not found');
+              return;
+          }
           map = L.map('map').setView([0, 0], 2);
 
           L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
