@@ -121,263 +121,14 @@
       const app = initializeApp(firebaseConfig);
       const db = getFirestore(app);
 
-      let map;
-      let markers = [];
-      let polylines = [];
-      let allLocations = [];
-      let currentUserFilter = 'all';
-
-      async function fetchLocationsFromFirebase() {
-          try {
-              const querySnapshot = await getDocs(collection(db, "location_updates"));
-              const data = [];
-              querySnapshot.forEach((doc) => {
-                  data.push(doc.data());
-              });
-              console.log('Fetched locations from Firebase:', data);
-              return data;
-          } catch (error) {
-              console.error('Error fetching locations from Firebase:', error);
-          }
-      }
-
-      async function loadAndDisplayLocations() {
-          const locations = await fetchLocationsFromFirebase();
-          if (!locations) {
-              console.error('No locations found');
-              return;
-          }
-
-          allLocations = locations;
-          updateFilterOptions(locations);
-          displayFilteredLocations();
-      }
-
-      function updateFilterOptions(locations) {
-          const userFilter = document.getElementById('userFilter');
-          userFilter.innerHTML = '<option value="all">All Users</option>'; // Reset options
-          const uniqueUsers = [...new Set(locations.map(loc => loc.id))];
-          uniqueUsers.forEach(user => {
-              const option = document.createElement('option');
-              option.value = user;
-              option.textContent = `User ${user}`;
-              userFilter.appendChild(option);
-          });
-      }
-
-      function displayFilteredLocations() {
-          const locations = allLocations.filter(loc => currentUserFilter === 'all' || loc.id === currentUserFilter);
-
-          sortLocationsByUserAndTimestamp(locations);
-
-          const tableBody = document.getElementById('locationTable').getElementsByTagName('tbody')[0];
-          tableBody.innerHTML = ''; // Clear existing table data
-
-          markers.forEach(marker => map.removeLayer(marker));
-          polylines.forEach(polyline => map.removeLayer(polyline));
-          markers = [];
-          polylines = [];
-
-          const bounds = L.latLngBounds(); // Initialize bounds
-          const idToLocations = {}; // Dictionary to group locations by ID and separate trips
-
-          const timeThreshold = 15 * 60 * 1000; // 15 minutes in milliseconds
-
-          let currentUser = null;
-          let isEvenRow = true;
-
-          locations.forEach((location, index) => {
-              const latLng = L.latLng(parseFloat(location.lat), parseFloat(location.lon));
-              bounds.extend(latLng); // Extend bounds to include this location
-
-              // Group locations by ID and separate trips
-              if (!idToLocations[location.id]) {
-                  idToLocations[location.id] = [];
-              }
-              const trips = idToLocations[location.id];
-
-              if (trips.length === 0 || new Date(location.timestamp) - new Date(trips[trips.length - 1][trips[trips.length - 1].length - 1].timestamp) > timeThreshold) {
-                  trips.push([]);
-              }
-              trips[trips.length - 1].push({ latLng, timestamp: location.timestamp });
-
-              location.user = `User ${location.id}`; // Assign user ID
-
-              // Check if new user group should start
-              if (currentUser !== location.user) {
-                  currentUser = location.user;
-                  isEvenRow = !isEvenRow;
-              }
-
-              // Add row to the table
-              const row = tableBody.insertRow();
-              row.className = isEvenRow ? 'table-row even-row' : 'table-row odd-row';
-
-              const userCell = row.insertCell(0); // New cell for user
-              const idCell = row.insertCell(1);
-              const latCell = row.insertCell(2);
-              const lonCell = row.insertCell(3);
-              const timestampCell = row.insertCell(4);
-              const distanceCell = row.insertCell(5);
-              const cumulativeDistanceCell = row.insertCell(6);
-              const speedCell = row.insertCell(7);
-              const actionCell = row.insertCell(8);
-              const deleteCell = row.insertCell(9);
-              const tripCell = row.insertCell(10); // New cell for Show Trip button
-
-              userCell.textContent = location.user;
-              idCell.textContent = location.id;
-              latCell.textContent = location.lat;
-              lonCell.textContent = location.lon;
-              timestampCell.textContent = location.timestamp;
-              distanceCell.textContent = location.distance.toFixed(2);
-              cumulativeDistanceCell.textContent = location.cumulative_distance.toFixed(2);
-              speedCell.textContent = location.speed.toFixed(2);
-
-              const showButton = document.createElement('button');
-              showButton.textContent = 'Show';
-              showButton.classList.add('show-button');
-              showButton.onclick = () => {
-                  scrollToTop();
-                  map.setView(latLng, 13);
-                  const marker = L.marker(latLng).addTo(map).bindPopup(`ID: ${location.id}<br>Timestamp: ${location.timestamp}`).openPopup();
-                  markers.push(marker);
-              };
-              actionCell.appendChild(showButton);
-
-              const deleteButton = document.createElement('button');
-              deleteButton.textContent = 'Delete';
-              deleteButton.classList.add('delete-button');
-              deleteButton.onclick = () => {
-                  scrollToTop();
-                  deleteLocation(index);
-              };
-              deleteCell.appendChild(deleteButton);
-
-              // Trip column
-              const tripsLength = trips[trips.length - 1].length;
-              if (tripsLength === 1 || (tripsLength > 1 && (index === 0 || new Date(location.timestamp) - new Date(locations[index - 1].timestamp) > timeThreshold))) {
-                  const showTripButton = document.createElement('button');
-                  showTripButton.textContent = 'Show Trip';
-                  showTripButton.classList.add('show-trip-button');
-                  showTripButton.onclick = () => {
-                      scrollToTop();
-                      map.fitBounds(L.latLngBounds(trips[trips.length - 1].map(loc => loc.latLng)));
-                  };
-                  tripCell.appendChild(showTripButton);
-
-                  const deleteTripButton = document.createElement('button');
-                  deleteTripButton.textContent = 'Delete Trip';
-                  deleteTripButton.classList.add('delete-trip-button');
-                  deleteTripButton.onclick = () => {
-                      scrollToTop();
-                      deleteTrip(location.id, trips.length - 1);
-                  };
-                  tripCell.appendChild(deleteTripButton);
-              } else {
-                  const placeholder = document.createElement('span');
-                  placeholder.innerHTML = '<b>--------</b>';
-                  tripCell.appendChild(placeholder);
-              }
-          });
-
-          // Draw polylines for each ID group and separate trips
-          for (const id in idToLocations) {
-              idToLocations[id].forEach(trip => {
-                  if (trip.length > 1) {
-                      const latLngs = trip.map(loc => loc.latLng);
-                      const polyline = L.polyline(latLngs, { color: 'black', weight: 4 }).addTo(map);
-                      polylines.push(polyline);
-                  }
-              });
-          }
-
-          if (locations.length > 0) {
-              map.fitBounds(bounds); // Fit the map view to the bounds of the markers
-          }
-      }
-
-      function showAll() {
-          markers.forEach(marker => map.removeLayer(marker));
-          polylines.forEach(polyline => map.removeLayer(polyline));
-          currentUserFilter = 'all';
-          displayFilteredLocations();
-      }
-
-      async function deleteAll() {
-          try {
-              const response = await fetch(`${backendUrl}/locations`, { method: 'DELETE' });
-              if (!response.ok) {
-                  throw new Error(`HTTP error! status: ${response.status}`);
-              }
-              console.log('Deleted all locations');
-              loadAndDisplayLocations();
-          } catch (error) {
-              console.error('Error deleting all locations:', error);
-          }
-      }
-
-      async function deleteLocation(index) {
-          try {
-              const response = await fetch(`${backendUrl}/locations/${index}`, { method: 'DELETE' });
-              if (!response.ok) {
-                  throw new Error(`HTTP error! status: ${response.status}`);
-              }
-              console.log(`Deleted location at index ${index}`);
-              loadAndDisplayLocations();
-          } catch (error) {
-              console.error(`Error deleting location at index ${index}:`, error);
-          }
-      }
-
-      async function deleteUser(userId) {
-          try {
-              const response = await fetch(`${backendUrl}/locations/user/${userId}`, { method: 'DELETE' });
-              if (!response.ok) {
-                  throw new Error(`HTTP error! status: ${response.status}`);
-              }
-              console.log(`Deleted all locations for user ${userId}`);
-              loadAndDisplayLocations();
-          } catch (error) {
-              console.error(`Error deleting locations for user ${userId}:`, error);
-          }
-      }
-
-      async function deleteTrip(userId, tripIndex) {
-          try {
-              const response = await fetch(`${backendUrl}/locations/trip/${userId}/${tripIndex}`, { method: 'DELETE' });
-              if (!response.ok) {
-                  throw new Error(`HTTP error! status: ${response.status}`);
-              }
-              console.log(`Deleted trip ${tripIndex} for user ${userId}`);
-              loadAndDisplayLocations();
-          } catch (error) {
-              console.error(`Error deleting trip ${tripIndex} for user ${userId}:`, error);
-          }
-      }
-
-      function scrollToTop() {
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
-
-      function filterByUser() {
-          const userFilter = document.getElementById('userFilter');
-          currentUserFilter = userFilter.value;
-          displayFilteredLocations();
-      }
-
-      document.addEventListener('DOMContentLoaded', (event) => {
-          console.log('DOM fully loaded and parsed');
-          setTimeout(initMap, 1000); // Adding a delay to ensure the map container is available
-      });
+      // Now you can use Firestore in your application
     </script>
 </head>
 <body>
     <h1>Location Updates</h1>
-    <div id="map"></div>
     <div class="button-container">
-        <button class="show-all-button" onclick="showAll()">Show All</button>
-        <button class="delete-all-button" onclick="deleteAll()">Delete All</button>
+        <button class="show-all-button" onclick="scrollToTop(); showAll();">Show All</button>
+        <!-- <button class="delete-all-button" onclick="scrollToTop(); deleteAll();">Delete All</button> -->
     </div>
     <div class="filter-container">
         <label for="userFilter">Filter by User: </label>
@@ -385,6 +136,7 @@
             <option value="all">All Users</option>
         </select>
     </div>
+    <div id="map"></div>
     <table id="locationTable">
         <thead>
             <tr>
@@ -404,5 +156,295 @@
         <tbody>
         </tbody>
     </table>
+    <script>
+        const backendUrl = 'https://traccartestnew.onrender.com';
+
+        let map;
+        let markers = [];
+        let polylines = [];
+        let allLocations = [];
+        let currentUserFilter = 'all';
+
+        async function fetchLocationsFromServer() {
+            try {
+                const response = await fetch(`${backendUrl}/locations`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                console.log('Fetched locations from server:', data);
+                return data;
+            } catch (error) {
+                console.error('Error fetching locations from server:', error);
+            }
+        }
+
+        async function fetchLocationsFromFirebase() {
+            try {
+                const querySnapshot = await getDocs(collection(db, "location_updates"));
+                const data = [];
+                querySnapshot.forEach((doc) => {
+                    data.push(doc.data());
+                });
+                console.log('Fetched locations from Firebase:', data);
+                return data;
+            } catch (error) {
+                console.error('Error fetching locations from Firebase:', error);
+            }
+        }
+
+        async function fetchLocations() {
+            const serverData = await fetchLocationsFromServer();
+            const firebaseData = await fetchLocationsFromFirebase();
+            return [...(serverData || []), ...(firebaseData || [])];
+        }
+
+        function initMap() {
+            map = L.map('map').setView([0, 0], 2);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            loadAndDisplayLocations();
+        }
+
+        function sortLocationsByUserAndTimestamp(locations) {
+            // Sort by user and then by timestamp within each user
+            locations.sort((a, b) => {
+                if (a.id === b.id) {
+                    return new Date(a.timestamp) - new Date(b.timestamp);
+                }
+                return a.id.localeCompare(b.id);
+            });
+        }
+
+        async function loadAndDisplayLocations() {
+            const locations = await fetchLocations();
+            if (!locations) {
+                console.error('No locations found');
+                return;
+            }
+
+            allLocations = locations;
+            updateFilterOptions(locations);
+            displayFilteredLocations();
+        }
+
+        function updateFilterOptions(locations) {
+            const userFilter = document.getElementById('userFilter');
+            userFilter.innerHTML = '<option value="all">All Users</option>'; // Reset options
+            const uniqueUsers = [...new Set(locations.map(loc => loc.id))];
+            uniqueUsers.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user;
+                option.textContent = `User ${user}`;
+                userFilter.appendChild(option);
+            });
+        }
+
+        function displayFilteredLocations() {
+            const locations = allLocations.filter(loc => currentUserFilter === 'all' || loc.id === currentUserFilter);
+
+            sortLocationsByUserAndTimestamp(locations);
+
+            const tableBody = document.getElementById('locationTable').getElementsByTagName('tbody')[0];
+            tableBody.innerHTML = ''; // Clear existing table data
+
+            markers.forEach(marker => map.removeLayer(marker));
+            polylines.forEach(polyline => map.removeLayer(polyline));
+            markers = [];
+            polylines = [];
+
+            const bounds = L.latLngBounds(); // Initialize bounds
+            const idToLocations = {}; // Dictionary to group locations by ID and separate trips
+
+            const timeThreshold = 15 * 60 * 1000; // 15 minutes in milliseconds
+
+            let currentUser = null;
+            let isEvenRow = true;
+
+            locations.forEach((location, index) => {
+                const latLng = L.latLng(parseFloat(location.lat), parseFloat(location.lon));
+                bounds.extend(latLng); // Extend bounds to include this location
+
+                // Group locations by ID and separate trips
+                if (!idToLocations[location.id]) {
+                    idToLocations[location.id] = [];
+                }
+                const trips = idToLocations[location.id];
+
+                if (trips.length === 0 || new Date(location.timestamp) - new Date(trips[trips.length - 1][trips[trips.length - 1].length - 1].timestamp) > timeThreshold) {
+                    trips.push([]);
+                }
+                trips[trips.length - 1].push({ latLng, timestamp: location.timestamp });
+
+                location.user = `User ${location.id}`; // Assign user ID
+
+                // Check if new user group should start
+                if (currentUser !== location.user) {
+                    currentUser = location.user;
+                    isEvenRow = !isEvenRow;
+                }
+
+                // Add row to the table
+                const row = tableBody.insertRow();
+                row.className = isEvenRow ? 'table-row even-row' : 'table-row odd-row';
+
+                const userCell = row.insertCell(0); // New cell for user
+                const idCell = row.insertCell(1);
+                const latCell = row.insertCell(2);
+                const lonCell = row.insertCell(3);
+                const timestampCell = row.insertCell(4);
+                const distanceCell = row.insertCell(5);
+                const cumulativeDistanceCell = row.insertCell(6);
+                const speedCell = row.insertCell(7);
+                const actionCell = row.insertCell(8);
+                const deleteCell = row.insertCell(9);
+                const tripCell = row.insertCell(10); // New cell for Show Trip button
+
+                userCell.textContent = location.user;
+                idCell.textContent = location.id;
+                latCell.textContent = location.lat;
+                lonCell.textContent = location.lon;
+                timestampCell.textContent = location.timestamp;
+                distanceCell.textContent = location.distance.toFixed(2);
+                cumulativeDistanceCell.textContent = location.cumulative_distance.toFixed(2);
+                speedCell.textContent = location.speed.toFixed(2);
+
+                const showButton = document.createElement('button');
+                showButton.textContent = 'Show';
+                showButton.classList.add('show-button');
+                showButton.onclick = () => {
+                    scrollToTop();
+                    map.setView(latLng, 13);
+                    const marker = L.marker(latLng).addTo(map).bindPopup(`ID: ${location.id}<br>Timestamp: ${location.timestamp}`).openPopup();
+                    markers.push(marker);
+                };
+                actionCell.appendChild(showButton);
+
+                const deleteButton = document.createElement('button');
+                deleteButton.textContent = 'Delete';
+                deleteButton.classList.add('delete-button');
+                deleteButton.onclick = () => {
+                    scrollToTop();
+                    deleteLocation(index);
+                };
+                deleteCell.appendChild(deleteButton);
+
+                // Trip column
+                const tripsLength = trips[trips.length - 1].length;
+                if (tripsLength === 1 || (tripsLength > 1 && (index === 0 || new Date(location.timestamp) - new Date(locations[index - 1].timestamp) > timeThreshold))) {
+                    const showTripButton = document.createElement('button');
+                    showTripButton.textContent = 'Show Trip';
+                    showTripButton.classList.add('show-trip-button');
+                    showTripButton.onclick = () => {
+                        scrollToTop();
+                        map.fitBounds(L.latLngBounds(trips[trips.length - 1].map(loc => loc.latLng)));
+                    };
+                    tripCell.appendChild(showTripButton);
+
+                    const deleteTripButton = document.createElement('button');
+                    deleteTripButton.textContent = 'Delete Trip';
+                    deleteTripButton.classList.add('delete-trip-button');
+                    deleteTripButton.onclick = () => {
+                        scrollToTop();
+                        deleteTrip(location.id, trips.length - 1);
+                    };
+                    tripCell.appendChild(deleteTripButton);
+                } else {
+                    const placeholder = document.createElement('span');
+                    placeholder.innerHTML = '<b>--------</b>';
+                    tripCell.appendChild(placeholder);
+                }
+            });
+
+            // Draw polylines for each ID group and separate trips
+            for (const id in idToLocations) {
+                idToLocations[id].forEach(trip => {
+                    if (trip.length > 1) {
+                        const latLngs = trip.map(loc => loc.latLng);
+                        const polyline = L.polyline(latLngs, { color: 'black', weight: 4 }).addTo(map);
+                        polylines.push(polyline);
+                    }
+                });
+            }
+
+            if (locations.length > 0) {
+                map.fitBounds(bounds); // Fit the map view to the bounds of the markers
+            }
+        }
+
+        function showAll() {
+            markers.forEach(marker => map.removeLayer(marker));
+            polylines.forEach(polyline => map.removeLayer(polyline));
+            currentUserFilter = 'all';
+            displayFilteredLocations();
+        }
+
+        async function deleteAll() {
+            try {
+                const response = await fetch(`${backendUrl}/locations`, { method: 'DELETE' });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                console.log('Deleted all locations');
+                loadAndDisplayLocations();
+            } catch (error) {
+                console.error('Error deleting all locations:', error);
+            }
+        }
+
+        async function deleteLocation(index) {
+            try {
+                const response = await fetch(`${backendUrl}/locations/${index}`, { method: 'DELETE' });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                console.log(`Deleted location at index ${index}`);
+                loadAndDisplayLocations();
+            } catch (error) {
+                console.error(`Error deleting location at index ${index}:`, error);
+            }
+        }
+
+        async function deleteUser(userId) {
+            try {
+                const response = await fetch(`${backendUrl}/locations/user/${userId}`, { method: 'DELETE' });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                console.log(`Deleted all locations for user ${userId}`);
+                loadAndDisplayLocations();
+            } catch (error) {
+                console.error(`Error deleting locations for user ${userId}:`, error);
+            }
+        }
+
+        async function deleteTrip(userId, tripIndex) {
+            try {
+                const response = await fetch(`${backendUrl}/locations/trip/${userId}/${tripIndex}`, { method: 'DELETE' });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                console.log(`Deleted trip ${tripIndex} for user ${userId}`);
+                loadAndDisplayLocations();
+            } catch (error) {
+                console.error(`Error deleting trip ${tripIndex} for user ${userId}:`, error);
+            }
+        }
+
+        function scrollToTop() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function filterByUser() {
+            const userFilter = document.getElementById('userFilter');
+            currentUserFilter = userFilter.value;
+            displayFilteredLocations();
+        }
+
+        window.onload = initMap;
+    </script>
 </body>
 </html>
