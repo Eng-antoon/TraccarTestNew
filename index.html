@@ -141,32 +141,6 @@
           }
       }
 
-      function initMap() {
-          console.log('Initializing map...');
-          const mapContainer = document.getElementById('map');
-          if (!mapContainer) {
-              console.error('Map container not found');
-              return;
-          }
-          map = L.map('map').setView([0, 0], 2);
-
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-              attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          }).addTo(map);
-
-          loadAndDisplayLocations();
-      }
-
-      function sortLocationsByUserAndTimestamp(locations) {
-          // Sort by user and then by timestamp within each user
-          locations.sort((a, b) => {
-              if (a.id === b.id) {
-                  return new Date(a.timestamp) - new Date(b.timestamp);
-              }
-              return a.id.localeCompare(b.id);
-          });
-      }
-
       async function loadAndDisplayLocations() {
           const locations = await fetchLocationsFromFirebase();
           if (!locations) {
@@ -392,10 +366,43 @@
           displayFilteredLocations();
       }
 
-      window.addEventListener('DOMContentLoaded', (event) => {
+      document.addEventListener('DOMContentLoaded', (event) => {
           console.log('DOM fully loaded and parsed');
-          initMap();
+          setTimeout(initMap, 1000); // Adding a delay to ensure the map container is available
       });
     </script>
+</head>
+<body>
+    <h1>Location Updates</h1>
+    <div id="map"></div>
+    <div class="button-container">
+        <button class="show-all-button" onclick="showAll()">Show All</button>
+        <button class="delete-all-button" onclick="deleteAll()">Delete All</button>
+    </div>
+    <div class="filter-container">
+        <label for="userFilter">Filter by User: </label>
+        <select id="userFilter" onchange="filterByUser()">
+            <option value="all">All Users</option>
+        </select>
+    </div>
+    <table id="locationTable">
+        <thead>
+            <tr>
+                <th>User</th>
+                <th>ID</th>
+                <th>Latitude</th>
+                <th>Longitude</th>
+                <th>Timestamp</th>
+                <th>Distance (km)</th>
+                <th>Cumulative Distance (km)</th>
+                <th>Speed (km/h)</th>
+                <th>Action</th>
+                <th>Delete</th>
+                <th>Trip</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
 </body>
 </html>
