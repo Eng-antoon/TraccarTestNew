@@ -141,26 +141,6 @@
           }
       }
 
-      async function fetchLocationsFromServer() {
-          try {
-              const response = await fetch(`${backendUrl}/locations`);
-              if (!response.ok) {
-                  throw new Error(`HTTP error! status: ${response.status}`);
-              }
-              const data = await response.json();
-              console.log('Fetched locations from server:', data);
-              return data;
-          } catch (error) {
-              console.error('Error fetching locations from server:', error);
-          }
-      }
-
-      async function fetchLocations() {
-          const serverData = await fetchLocationsFromServer();
-          const firebaseData = await fetchLocationsFromFirebase();
-          return [...(serverData || []), ...(firebaseData || [])];
-      }
-
       function initMap() {
           console.log('Initializing map...');
           const mapContainer = document.getElementById('map');
@@ -188,7 +168,7 @@
       }
 
       async function loadAndDisplayLocations() {
-          const locations = await fetchLocations();
+          const locations = await fetchLocationsFromFirebase();
           if (!locations) {
               console.error('No locations found');
               return;
