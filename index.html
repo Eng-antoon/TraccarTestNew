@@ -110,7 +110,7 @@
 
         // Import the functions you need from the SDKs you need
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, collection, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, query, orderBy, getDocs, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         // Your web app's Firebase configuration
         const firebaseConfig = {
@@ -142,7 +142,7 @@
                 const querySnapshot = await getDocs(q);
                 const data = [];
                 querySnapshot.forEach((doc) => {
-                    data.push(doc.data());
+                    data.push({ ...doc.data(), docId: doc.id });
                 });
                 console.log('Fetched locations from Firebase:', data);
                 return data;
@@ -235,7 +235,7 @@
                 if (trips.length === 0 || new Date(location.timestamp) - new Date(trips[trips.length - 1][trips[trips.length - 1].length - 1].timestamp) > timeThreshold) {
                     trips.push([]);
                 }
-                trips[trips.length - 1].push({ latLng, timestamp: location.timestamp });
+                trips[trips.length - 1].push(location);
 
                 location.user = `User ${location.id}`; // Assign user ID
 
@@ -290,7 +290,7 @@
                 deleteButton.classList.add('delete-button');
                 deleteButton.onclick = async () => {
                     scrollToTop();
-                    await deleteLocation(index);
+                    await deleteLocation(location.docId);
                 };
                 deleteCell.appendChild(deleteButton);
 
@@ -302,7 +302,7 @@
                     showTripButton.classList.add('show-trip-button');
                     showTripButton.onclick = () => {
                         scrollToTop();
-                        map.fitBounds(L.latLngBounds(trips[trips.length - 1].map(loc => loc.latLng)));
+                        map.fitBounds(L.latLngBounds(trips[trips.length - 1].map(loc => L.latLng(parseFloat(loc.lat), parseFloat(loc.lon)))));
                     };
                     tripCell.appendChild(showTripButton);
 
@@ -340,7 +340,7 @@
             for (const id in idToLocations) {
                 idToLocations[id].forEach((trip, tripIndex) => {
                     if (trip.length > 1) {
-                        const latLngs = trip.map(loc => loc.latLng);
+                        const latLngs = trip.map(loc => L.latLng(parseFloat(loc.lat), parseFloat(loc.lon)));
                         const polyline = L.polyline(latLngs, { color: 'black', weight: 4 }).addTo(map);
                         polylines.push(polyline);
                     }
@@ -373,16 +373,16 @@
             }
         }
 
-        async function deleteLocation(index) {
+        async function deleteLocation(docId) {
             try {
-                const response = await fetch(`${backendUrl}/locations/${index}`, { method: 'DELETE' });
+                const response = await fetch(`${backendUrl}/locations/${docId}`, { method: 'DELETE' });
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                console.log(`Deleted location at index ${index}`);
+                console.log(`Deleted location with docId ${docId}`);
                 loadAndDisplayLocations();
             } catch (error) {
-                console.error(`Error deleting location at index ${index}:`, error);
+                console.error(`Error deleting location with docId ${docId}:`, error);
             }
         }
 
