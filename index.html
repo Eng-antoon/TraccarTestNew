@@ -99,6 +99,9 @@
             padding: 10px;
             font-size: 16px;
         }
+        .trip-row {
+            display: none;
+        }
     </style>
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script type="module">
@@ -107,7 +110,7 @@
 
         // Import the functions you need from the SDKs you need
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, collection, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         // Your web app's Firebase configuration
         const firebaseConfig = {
@@ -129,13 +132,11 @@
         let polylines = [];
         let allLocations = [];
         let currentUserFilter = 'all';
-        let latestTimestamp = localStorage.getItem('latestTimestamp') || '1970-01-01T00:00:00Z';
 
-        async function fetchNewLocationsFromFirebase() {
+        async function fetchLocationsFromFirebase() {
             try {
                 const q = query(
                     collection(db, "location_updates"),
-                    where("timestamp", ">", latestTimestamp),
                     orderBy("timestamp", "asc")
                 );
                 const querySnapshot = await getDocs(q);
@@ -143,14 +144,10 @@
                 querySnapshot.forEach((doc) => {
                     data.push(doc.data());
                 });
-                console.log('Fetched new locations from Firebase:', data);
-                if (data.length > 0) {
-                    latestTimestamp = data[data.length - 1].timestamp;
-                    localStorage.setItem('latestTimestamp', latestTimestamp);
-                }
+                console.log('Fetched locations from Firebase:', data);
                 return data;
             } catch (error) {
-                console.error('Error fetching new locations from Firebase:', error);
+                console.error('Error fetching locations from Firebase:', error);
                 return [];
             }
         }
@@ -181,14 +178,14 @@
         }
 
         async function loadAndDisplayLocations() {
-            const newLocations = await fetchNewLocationsFromFirebase();
-            if (!newLocations) {
-                console.error('No new locations found');
+            const locations = await fetchLocationsFromFirebase();
+            if (!locations) {
+                console.error('No locations found');
                 return;
             }
 
-            allLocations = [...allLocations, ...newLocations];
-            updateFilterOptions(allLocations);
+            allLocations = locations;
+            updateFilterOptions(locations);
             displayFilteredLocations();
         }
 
@@ -251,6 +248,7 @@
                 // Add row to the table
                 const row = tableBody.insertRow();
                 row.className = isEvenRow ? 'table-row even-row' : 'table-row odd-row';
+                row.dataset.tripIndex = trips.length - 1;
 
                 const userCell = row.insertCell(0); // New cell for user
                 const idCell = row.insertCell(1);
@@ -313,11 +311,28 @@
                         await deleteTrip(location.id, trips.length - 1);
                     };
                     tripCell.appendChild(deleteTripButton);
+
+                    const toggleTripButton = document.createElement('button');
+                    toggleTripButton.textContent = 'Toggle Trip';
+                    toggleTripButton.classList.add('toggle-trip-button');
+                    toggleTripButton.onclick = () => {
+                        const tripRows = document.querySelectorAll(`tr[data-trip-index='${trips.length - 1}']`);
+                        tripRows.forEach(tr => {
+                            if (tr.style.display === 'none') {
+                                tr.style.display = 'table-row';
+                            } else {
+                                tr.style.display = 'none';
+                            }
+                        });
+                    };
+                    tripCell.appendChild(toggleTripButton);
                 } else {
                     const placeholder = document.createElement('span');
                     placeholder.innerHTML = '<b>--------</b>';
                     tripCell.appendChild(placeholder);
                 }
+
+                row.classList.add('trip-row');
             });
 
             // Draw polylines for each ID group and separate trips
