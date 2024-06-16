@@ -105,14 +105,11 @@
     </style>
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script type="module">
-        // Define backendUrl
         const backendUrl = 'https://traccartestnew.onrender.com';
 
-        // Import the functions you need from the SDKs you need
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getFirestore, collection, query, orderBy, getDocs, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, query, orderBy, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-        // Your web app's Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyBxcqFcUGgjd_5msgpUzoQOBrrNvheORuQ",
             authDomain: "traccarnew.firebaseapp.com",
@@ -123,7 +120,6 @@
             measurementId: "G-P2P81ZM935"
         };
 
-        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
@@ -168,7 +164,6 @@
         }
 
         function sortLocationsByUserAndTimestamp(locations) {
-            // Sort by user and then by timestamp within each user
             locations.sort((a, b) => {
                 if (a.id === b.id) {
                     return new Date(a.timestamp) - new Date(b.timestamp);
@@ -191,7 +186,7 @@
 
         function updateFilterOptions(locations) {
             const userFilter = document.getElementById('userFilter');
-            userFilter.innerHTML = '<option value="all">All Users</option>'; // Reset options
+            userFilter.innerHTML = '<option value="all">All Users</option>'; 
             const uniqueUsers = [...new Set(locations.map(loc => loc.id))];
             uniqueUsers.forEach(user => {
                 const option = document.createElement('option');
@@ -207,26 +202,25 @@
             sortLocationsByUserAndTimestamp(locations);
 
             const tableBody = document.getElementById('locationTable').getElementsByTagName('tbody')[0];
-            tableBody.innerHTML = ''; // Clear existing table data
+            tableBody.innerHTML = ''; 
 
             markers.forEach(marker => map.removeLayer(marker));
             polylines.forEach(polyline => map.removeLayer(polyline));
             markers = [];
             polylines = [];
 
-            const bounds = L.latLngBounds(); // Initialize bounds
-            const idToLocations = {}; // Dictionary to group locations by ID and separate trips
+            const bounds = L.latLngBounds(); 
+            const idToLocations = {}; 
 
-            const timeThreshold = 15 * 60 * 1000; // 15 minutes in milliseconds
+            const timeThreshold = 15 * 60 * 1000; 
 
             let currentUser = null;
             let isEvenRow = true;
 
             locations.forEach((location, index) => {
                 const latLng = L.latLng(parseFloat(location.lat), parseFloat(location.lon));
-                bounds.extend(latLng); // Extend bounds to include this location
+                bounds.extend(latLng); 
 
-                // Group locations by ID and separate trips
                 if (!idToLocations[location.id]) {
                     idToLocations[location.id] = [];
                 }
@@ -237,15 +231,13 @@
                 }
                 trips[trips.length - 1].push(location);
 
-                location.user = `User ${location.id}`; // Assign user ID
+                location.user = `User ${location.id}`; 
 
-                // Check if new user group should start
                 if (currentUser !== location.user) {
                     currentUser = location.user;
                     isEvenRow = !isEvenRow;
                 }
 
-                // Add row to the table
                 const row = tableBody.insertRow();
                 row.className = isEvenRow ? 'table-row even-row' : 'table-row odd-row';
                 row.dataset.tripIndex = trips.length - 1;
@@ -253,7 +245,7 @@
                     row.classList.add('trip-collapsed');
                 }
 
-                const userCell = row.insertCell(0); // New cell for user
+                const userCell = row.insertCell(0); 
                 const idCell = row.insertCell(1);
                 const latCell = row.insertCell(2);
                 const lonCell = row.insertCell(3);
@@ -263,7 +255,7 @@
                 const speedCell = row.insertCell(7);
                 const actionCell = row.insertCell(8);
                 const deleteCell = row.insertCell(9);
-                const tripCell = row.insertCell(10); // New cell for Show Trip button
+                const tripCell = row.insertCell(10); 
 
                 userCell.textContent = location.user;
                 idCell.textContent = location.id;
@@ -294,7 +286,6 @@
                 };
                 deleteCell.appendChild(deleteButton);
 
-                // Trip column
                 const tripsLength = trips[trips.length - 1].length;
                 if (tripsLength > 1 && trips[trips.length - 1][0].timestamp === location.timestamp) {
                     const showTripButton = document.createElement('button');
@@ -336,7 +327,6 @@
                 row.classList.add('trip-row');
             });
 
-            // Draw polylines for each ID group and separate trips
             for (const id in idToLocations) {
                 idToLocations[id].forEach((trip, tripIndex) => {
                     if (trip.length > 1) {
@@ -348,7 +338,7 @@
             }
 
             if (locations.length > 0) {
-                map.fitBounds(bounds); // Fit the map view to the bounds of the markers
+                map.fitBounds(bounds);
             }
         }
 
@@ -425,7 +415,7 @@
         document.addEventListener('DOMContentLoaded', (event) => {
             console.log('DOM fully loaded and parsed');
             initMap();
-            setInterval(loadAndDisplayLocations, 30000); // Fetch new locations every 30 seconds
+            setInterval(loadAndDisplayLocations, 30000);
         });
     </script>
 </head>
