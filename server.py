@@ -170,12 +170,12 @@ def delete_trip(user_id, trip_index):
 
     if 0 <= trip_index < len(trips):
         trip_to_delete = trips[trip_index]
-        location_updates = [update for update in location_updates if update not in trip_to_delete]
         try:
             for update in trip_to_delete:
                 docs = db.collection('location_updates').where('timestamp', '==', update['timestamp']).stream()
                 for doc in docs:
                     db.collection('location_updates').document(doc.id).delete()
+            location_updates = [update for update in location_updates if update not in trip_to_delete]
             return jsonify({'status': f'trip {trip_index} for user {user_id} deleted'}), 200
         except Exception as e:
             print('Error deleting trip from Firestore:', e)
