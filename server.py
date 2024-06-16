@@ -14,6 +14,8 @@ cred = credentials.Certificate("serviceAccountKey.json")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
+location_updates = []  # Initialize the global location_updates list
+
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371.0  # Radius of the Earth in kilometers
     lat1 = math.radians(lat1)
@@ -32,61 +34,66 @@ def haversine(lat1, lon1, lat2, lon2):
 
 @app.route('/log_location', methods=['POST'])
 def log_location():
-    loc_id = request.args.get('id') or request.form.get('id')
-    lat = request.args.get('lat') or request.form.get('lat')
-    lon = request.args.get('lon') or request.form.get('lon')
-    
-    if not loc_id or not lat or not lon:
-        return jsonify({'error': 'id, lat, and lon are required'}), 400
-
     try:
-        lat = float(lat)
-        lon = float(lon)
-    except ValueError:
-        return jsonify({'error': 'lat and lon must be valid numbers'}), 400
+        loc_id = request.args.get('id') or request.form.get('id')
+        lat = request.args.get('lat') or request.form.get('lat')
+        lon = request.args.get('lon') or request.form.get('lon')
+        
+        if not loc_id or not lat or not lon:
+            return jsonify({'error': 'id, lat, and lon are required'}), 400
 
-    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    distance = 0
-    speed = 0
-    cumulative_distance = 0
+        try:
+            lat = float(lat)
+            lon = float(lon)
+        except ValueError:
+            return jsonify({'error': 'lat and lon must be valid numbers'}), 400
 
-    if location_updates:
-        user_updates = [update for update in location_updates if update['id'] == loc_id]
-        if user_updates:
-            last_update = user_updates[-1]
-            last_lat = float(last_update['lat'])
-            last_lon = float(last_update['lon'])
-            last_timestamp = datetime.strptime(last_update['timestamp'], '%Y-%m-%d %H:%M:%S')
-            current_timestamp = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        distance = 0
+        speed = 0
+        cumulative_distance = 0
 
-            # Check if it's a new trip (more than 15 minutes since the last update)
-            time_diff = (current_timestamp - last_timestamp).total_seconds()
-            if time_diff > 15 * 60:
-                cumulative_distance = 0
-            else:
-                distance = haversine(last_lat, last_lon, lat, lon)
-                cumulative_distance = last_update.get('cumulative_distance', 0) + distance
-                speed = (distance / (time_diff / 3600)) if time_diff > 0 else 0
+        if location_updates:
+            user_updates = [update for update in location_updates if update['id'] == loc_id]
+            if user_updates:
+                last_update = user_updates[-1]
+                last_lat = float(last_update['lat'])
+                last_lon = float(last_update['lon'])
+                last_timestamp = datetime.strptime(last_update['timestamp'], '%Y-%m-%d %H:%M:%S')
+                current_timestamp = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
 
-    update = {
-        'id': loc_id,
-        'lat': lat,
-        'lon': lon,
-        'timestamp': timestamp,
-        'distance': distance,
-        'cumulative_distance': cumulative_distance,
-        'speed': speed,
-        'static_index': f'{loc_id}_{timestamp}'  # Unique identifier
-    }
-    location_updates.append(update)
+                # Check if it's a new trip (more than 15 minutes since the last update)
+                time_diff = (current_timestamp - last_timestamp).total_seconds()
+                if time_diff > 15 * 60:
+                    cumulative_distance = 0
+                else:
+                    distance = haversine(last_lat, last_lon, lat, lon)
+                    cumulative_distance = last_update.get('cumulative_distance', 0) + distance
+                    speed = (distance / (time_diff / 3600)) if time_diff > 0 else 0
 
-    # Store the update in Firebase Firestore
-    try:
-        db.collection('location_updates').add(update)
+        update = {
+            'id': loc_id,
+            'lat': lat,
+            'lon': lon,
+            'timestamp': timestamp,
+            'distance': distance,
+            'cumulative_distance': cumulative_distance,
+            'speed': speed,
+            'static_index': f'{loc_id}_{timestamp}'  # Unique identifier
+        }
+        location_updates.append(update)
+
+        # Store the update in Firebase Firestore
+        try:
+            db.collection('location_updates').add(update)
+        except Exception as e:
+            print(f'Error adding to Firestore: {e}')
+            return jsonify({'error': str(e)}), 500
+
+        return jsonify(update), 200
     except Exception as e:
+        print(f'Error in log_location: {e}')
         return jsonify({'error': str(e)}), 500
-
-    return jsonify(update), 200
 
 @app.route('/locations', methods=['GET'])
 def get_locations():
