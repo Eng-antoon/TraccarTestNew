@@ -9,8 +9,6 @@ from firebase_admin import credentials, firestore
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
-location_updates = []
-
 # Initialize Firebase Admin SDK
 cred = credentials.Certificate("serviceAccountKey.json")
 firebase_admin.initialize_app(cred)
@@ -19,7 +17,7 @@ db = firestore.client()
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371.0  # Radius of the Earth in kilometers
     lat1 = math.radians(lat1)
-    lon1 = math.radians(lat1)
+    lon1 = math.radians(lon1)
     lat2 = math.radians(lat2)
     lon2 = math.radians(lat2)
     
@@ -54,6 +52,7 @@ def log_location():
     speed = 0
     cumulative_distance = 0
 
+    user_updates = []
     if location_updates:
         user_updates = [update for update in location_updates if update['id'] == loc_id]
         if user_updates:
@@ -94,20 +93,42 @@ def log_location():
 
 @app.route('/locations', methods=['GET'])
 def get_locations():
-    return jsonify(location_updates), 200
+    try:
+        location_data = []
+        docs = db.collection('location_updates').stream()
+        for doc in docs:
+            location_data.append(doc.to_dict())
+        return jsonify(location_data), 200
+    except Exception as e:
+        print('Error fetching locations from Firestore:', e)
+        return jsonify({'error': 'Error fetching locations from Firestore'}), 500
 
 @app.route('/locations', methods=['DELETE'])
 def delete_all_locations():
     global location_updates
     location_updates = []
-    return jsonify({'status': 'all records deleted'}), 200
+    try:
+        docs = db.collection('location_updates').stream()
+        for doc in docs:
+            db.collection('location_updates').document(doc.id).delete()
+        return jsonify({'status': 'all records deleted'}), 200
+    except Exception as e:
+        print('Error deleting locations from Firestore:', e)
+        return jsonify({'error': 'Error deleting locations from Firestore'}), 500
 
 @app.route('/locations/<int:index>', methods=['DELETE'])
 def delete_location(index):
     global location_updates
     if 0 <= index < len(location_updates):
-        del location_updates[index]
-        return jsonify({'status': 'record deleted'}), 200
+        update_to_delete = location_updates.pop(index)
+        try:
+            docs = db.collection('location_updates').where('timestamp', '==', update_to_delete['timestamp']).stream()
+            for doc in docs:
+                db.collection('location_updates').document(doc.id).delete()
+            return jsonify({'status': 'record deleted'}), 200
+        except Exception as e:
+            print('Error deleting location from Firestore:', e)
+            return jsonify({'error': 'Error deleting location from Firestore'}), 500
     else:
         return jsonify({'status': 'record not found'}), 404
 
@@ -115,7 +136,14 @@ def delete_location(index):
 def delete_user_locations(user_id):
     global location_updates
     location_updates = [update for update in location_updates if update['id'] != user_id]
-    return jsonify({'status': f'all records for user {user_id} deleted'}), 200
+    try:
+        docs = db.collection('location_updates').where('id', '==', user_id).stream()
+        for doc in docs:
+            db.collection('location_updates').document(doc.id).delete()
+        return jsonify({'status': f'all records for user {user_id} deleted'}), 200
+    except Exception as e:
+        print('Error deleting user locations from Firestore:', e)
+        return jsonify({'error': 'Error deleting user locations from Firestore'}), 500
 
 @app.route('/locations/trip/<user_id>/<int:trip_index>', methods=['DELETE'])
 def delete_trip(user_id, trip_index):
@@ -139,7 +167,15 @@ def delete_trip(user_id, trip_index):
     if 0 <= trip_index < len(trips):
         trip_to_delete = trips[trip_index]
         location_updates = [update for update in location_updates if update not in trip_to_delete]
-        return jsonify({'status': f'trip {trip_index} for user {user_id} deleted'}), 200
+        try:
+            for update in trip_to_delete:
+                docs = db.collection('location_updates').where('timestamp', '==', update['timestamp']).stream()
+                for doc in docs:
+                    db.collection('location_updates').document(doc.id).delete()
+            return jsonify({'status': f'trip {trip_index} for user {user_id} deleted'}), 200
+        except Exception as e:
+            print('Error deleting trip from Firestore:', e)
+            return jsonify({'error': 'Error deleting trip from Firestore'}), 500
     else:
         return jsonify({'status': 'trip not found'}), 404
 
