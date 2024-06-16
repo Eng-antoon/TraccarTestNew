@@ -311,7 +311,7 @@
 
           // Draw polylines for each ID group and separate trips
           for (const id in idToLocations) {
-              idToLocations[id].forEach(trip => {
+              idToLocations[id].forEach((trip, tripIndex) => {
                   if (trip.length > 1) {
                       const latLngs = trip.map(loc => loc.latLng);
                       const polyline = L.polyline(latLngs, { color: 'black', weight: 4 }).addTo(map);
