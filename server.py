@@ -14,14 +14,12 @@ cred = credentials.Certificate("serviceAccountKey.json")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-location_updates = []  # Initialize the global location_updates list
-
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371.0  # Radius of the Earth in kilometers
     lat1 = math.radians(lat1)
     lon1 = math.radians(lon1)
     lat2 = math.radians(lat2)
-    lon2 = math.radians(lat2)
+    lon2 = math.radians(lon2)
     
     dlat = lat2 - lat1
     dlon = lon2 - lon1
@@ -34,7 +32,6 @@ def haversine(lat1, lon1, lat2, lon2):
 
 @app.route('/log_location', methods=['POST'])
 def log_location():
-    global location_updates  # Ensure we're modifying the global list
     try:
         loc_id = request.args.get('id') or request.form.get('id')
         lat = request.args.get('lat') or request.form.get('lat')
@@ -54,23 +51,23 @@ def log_location():
         speed = 0
         cumulative_distance = 0
 
-        if location_updates:
-            user_updates = [update for update in location_updates if update['id'] == loc_id]
-            if user_updates:
-                last_update = user_updates[-1]
-                last_lat = float(last_update['lat'])
-                last_lon = float(last_update['lon'])
-                last_timestamp = datetime.strptime(last_update['timestamp'], '%Y-%m-%d %H:%M:%S')
-                current_timestamp = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
+        # Fetch previous updates for this user to calculate distance and speed
+        user_updates = db.collection('location_updates').where('id', '==', loc_id).order_by('timestamp').stream()
+        user_updates = [doc.to_dict() for doc in user_updates]
+        
+        if user_updates:
+            last_update = user_updates[-1]
+            last_lat = float(last_update['lat'])
+            last_lon = float(last_update['lon'])
+            last_timestamp = datetime.strptime(last_update['timestamp'], '%Y-%m-%d %H:%M:%S')
+            current_timestamp = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
 
-                # Check if it's a new trip (more than 15 minutes since the last update)
-                time_diff = (current_timestamp - last_timestamp).total_seconds()
-                if time_diff > 15 * 60:
-                    cumulative_distance = 0
-                else:
-                    distance = haversine(last_lat, last_lon, lat, lon)
-                    cumulative_distance = last_update.get('cumulative_distance', 0) + distance
-                    speed = (distance / (time_diff / 3600)) if time_diff > 0 else 0
+            # Check if it's a new trip (more than 15 minutes since the last update)
+            time_diff = (current_timestamp - last_timestamp).total_seconds()
+            if time_diff <= 15 * 60:
+                distance = haversine(last_lat, last_lon, lat, lon)
+                cumulative_distance = last_update.get('cumulative_distance', 0) + distance
+                speed = (distance / (time_diff / 3600)) if time_diff > 0 else 0
 
         update = {
             'id': loc_id,
@@ -82,7 +79,6 @@ def log_location():
             'speed': speed,
             'static_index': f'{loc_id}_{timestamp}'  # Unique identifier
         }
-        location_updates.append(update)
 
         # Store the update in Firebase Firestore
         try:
@@ -98,74 +94,69 @@ def log_location():
 
 @app.route('/locations', methods=['GET'])
 def get_locations():
-    global location_updates  # Ensure we're accessing the global list
+    updates = db.collection('location_updates').order_by('timestamp').stream()
+    location_updates = [doc.to_dict() for doc in updates]
     return jsonify(location_updates), 200
 
 @app.route('/locations', methods=['DELETE'])
 def delete_all_locations():
-    global location_updates  # Ensure we're modifying the global list
-    location_updates = []
+    updates = db.collection('location_updates').stream()
+    for doc in updates:
+        doc.reference.delete()
     return jsonify({'status': 'all records deleted'}), 200
 
 @app.route('/locations/<string:static_index>', methods=['DELETE'])
 def delete_location(static_index):
-    global location_updates  # Ensure we're modifying the global list
-    location_updates = [update for update in location_updates if update['static_index'] != static_index]
-    # Delete from Firestore
     try:
-        docs = db.collection('location_updates').where('static_index', '==', static_index).get()
+        docs = db.collection('location_updates').where('static_index', '==', static_index).stream()
         for doc in docs:
             doc.reference.delete()
+        return jsonify({'status': 'record deleted'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-    return jsonify({'status': 'record deleted'}), 200
 
 @app.route('/locations/user/<user_id>', methods=['DELETE'])
 def delete_user_locations(user_id):
-    global location_updates  # Ensure we're modifying the global list
-    location_updates = [update for update in location_updates if update['id'] != user_id]
-    # Delete from Firestore
     try:
-        docs = db.collection('location_updates').where('id', '==', user_id).get()
+        docs = db.collection('location_updates').where('id', '==', user_id).stream()
         for doc in docs:
             doc.reference.delete()
+        return jsonify({'status': f'all records for user {user_id} deleted'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-    return jsonify({'status': f'all records for user {user_id} deleted'}), 200
 
 @app.route('/locations/trip/<user_id>/<int:trip_index>', methods=['DELETE'])
 def delete_trip(user_id, trip_index):
-    global location_updates  # Ensure we're modifying the global list
-    user_updates = [update for update in location_updates if update['id'] == user_id]
-    trips = []
-    current_trip = []
-    last_timestamp = None
+    try:
+        user_updates = db.collection('location_updates').where('id', '==', user_id).order_by('timestamp').stream()
+        user_updates = [doc.to_dict() for doc in user_updates]
 
-    for update in user_updates:
-        current_timestamp = datetime.strptime(update['timestamp'], '%Y-%m-%d %H:%M:%S')
-        if last_timestamp and (current_timestamp - last_timestamp).total_seconds() > 15 * 60:
+        trips = []
+        current_trip = []
+        last_timestamp = None
+
+        for update in user_updates:
+            current_timestamp = datetime.strptime(update['timestamp'], '%Y-%m-%d %H:%M:%S')
+            if last_timestamp and (current_timestamp - last_timestamp).total_seconds() > 15 * 60:
+                trips.append(current_trip)
+                current_trip = []
+            current_trip.append(update)
+            last_timestamp = current_timestamp
+
+        if current_trip:
             trips.append(current_trip)
-            current_trip = []
-        current_trip.append(update)
-        last_timestamp = current_timestamp
 
-    if current_trip:
-        trips.append(current_trip)
-
-    if 0 <= trip_index < len(trips):
-        trip_to_delete = trips[trip_index]
-        location_updates = [update for update in location_updates if update not in trip_to_delete]
-        # Delete from Firestore
-        try:
+        if 0 <= trip_index < len(trips):
+            trip_to_delete = trips[trip_index]
             for update in trip_to_delete:
-                docs = db.collection('location_updates').where('static_index', '==', update['static_index']).get()
+                docs = db.collection('location_updates').where('static_index', '==', update['static_index']).stream()
                 for doc in docs:
                     doc.reference.delete()
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-        return jsonify({'status': f'trip {trip_index} for user {user_id} deleted'}), 200
-    else:
-        return jsonify({'status': 'trip not found'}), 404
+            return jsonify({'status': f'trip {trip_index} for user {user_id} deleted'}), 200
+        else:
+            return jsonify({'status': 'trip not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/')
 def serve_index():
