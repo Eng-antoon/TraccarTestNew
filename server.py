@@ -19,7 +19,7 @@ location_updates = []  # Initialize the global location_updates list
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371.0  # Radius of the Earth in kilometers
     lat1 = math.radians(lat1)
-    lon1 = math.radians(lat1)
+    lon1 = math.radians(lon1)
     lat2 = math.radians(lat2)
     lon2 = math.radians(lat2)
     
@@ -34,6 +34,7 @@ def haversine(lat1, lon1, lat2, lon2):
 
 @app.route('/log_location', methods=['POST'])
 def log_location():
+    global location_updates  # Ensure we're modifying the global list
     try:
         loc_id = request.args.get('id') or request.form.get('id')
         lat = request.args.get('lat') or request.form.get('lat')
@@ -97,17 +98,18 @@ def log_location():
 
 @app.route('/locations', methods=['GET'])
 def get_locations():
+    global location_updates  # Ensure we're accessing the global list
     return jsonify(location_updates), 200
 
 @app.route('/locations', methods=['DELETE'])
 def delete_all_locations():
-    global location_updates
+    global location_updates  # Ensure we're modifying the global list
     location_updates = []
     return jsonify({'status': 'all records deleted'}), 200
 
 @app.route('/locations/<string:static_index>', methods=['DELETE'])
 def delete_location(static_index):
-    global location_updates
+    global location_updates  # Ensure we're modifying the global list
     location_updates = [update for update in location_updates if update['static_index'] != static_index]
     # Delete from Firestore
     try:
@@ -120,7 +122,7 @@ def delete_location(static_index):
 
 @app.route('/locations/user/<user_id>', methods=['DELETE'])
 def delete_user_locations(user_id):
-    global location_updates
+    global location_updates  # Ensure we're modifying the global list
     location_updates = [update for update in location_updates if update['id'] != user_id]
     # Delete from Firestore
     try:
@@ -133,7 +135,7 @@ def delete_user_locations(user_id):
 
 @app.route('/locations/trip/<user_id>/<int:trip_index>', methods=['DELETE'])
 def delete_trip(user_id, trip_index):
-    global location_updates
+    global location_updates  # Ensure we're modifying the global list
     user_updates = [update for update in location_updates if update['id'] == user_id]
     trips = []
     current_trip = []
