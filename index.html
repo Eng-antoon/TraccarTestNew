@@ -99,9 +99,6 @@
             padding: 10px;
             font-size: 16px;
         }
-        .trip-row.hidden {
-            display: none;
-        }
     </style>
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script type="module">
@@ -240,10 +237,6 @@
 
                 const row = tableBody.insertRow();
                 row.className = isEvenRow ? 'table-row even-row' : 'table-row odd-row';
-                row.dataset.tripIndex = trips.length - 1;
-                if (trips[trips.length - 1].length > 1) {
-                    row.classList.add('trip-collapsed');
-                }
 
                 const userCell = row.insertCell(0); 
                 const idCell = row.insertCell(1);
@@ -305,19 +298,6 @@
                         await deleteTrip(location.id, trips.length - 1);
                     };
                     tripCell.appendChild(deleteTripButton);
-
-                    const toggleTripButton = document.createElement('button');
-                    toggleTripButton.textContent = 'Toggle Trip';
-                    toggleTripButton.classList.add('toggle-trip-button');
-                    toggleTripButton.onclick = () => {
-                        const tripRows = document.querySelectorAll(`tr[data-trip-index='${trips.length - 1}']`);
-                        tripRows.forEach((tr, idx) => {
-                            if (idx > 0) {
-                                tr.classList.toggle('hidden');
-                            }
-                        });
-                    };
-                    tripCell.appendChild(toggleTripButton);
                 } else {
                     const placeholder = document.createElement('span');
                     placeholder.innerHTML = '<b>--------</b>';
@@ -347,7 +327,6 @@
             polylines.forEach(polyline => map.removeLayer(polyline));
             currentUserFilter = 'all';
             displayFilteredLocations();
-            document.querySelectorAll('.trip-row').forEach(row => row.classList.remove('hidden'));
         }
 
         async function deleteAll() {
