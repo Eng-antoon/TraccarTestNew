@@ -99,8 +99,8 @@
             padding: 10px;
             font-size: 16px;
         }
-        .trip-row {
-            display: table-row;
+        .trip-row.hidden {
+            display: none;
         }
     </style>
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
@@ -249,6 +249,9 @@
                 const row = tableBody.insertRow();
                 row.className = isEvenRow ? 'table-row even-row' : 'table-row odd-row';
                 row.dataset.tripIndex = trips.length - 1;
+                if (trips[trips.length - 1].length > 1) {
+                    row.classList.add('trip-collapsed');
+                }
 
                 const userCell = row.insertCell(0); // New cell for user
                 const idCell = row.insertCell(1);
@@ -293,7 +296,7 @@
 
                 // Trip column
                 const tripsLength = trips[trips.length - 1].length;
-                if (tripsLength === 1 || (tripsLength > 1 && (index === 0 || new Date(location.timestamp) - new Date(locations[index - 1].timestamp) > timeThreshold))) {
+                if (tripsLength > 1 && trips[trips.length - 1][0].timestamp === location.timestamp) {
                     const showTripButton = document.createElement('button');
                     showTripButton.textContent = 'Show Trip';
                     showTripButton.classList.add('show-trip-button');
@@ -317,11 +320,9 @@
                     toggleTripButton.classList.add('toggle-trip-button');
                     toggleTripButton.onclick = () => {
                         const tripRows = document.querySelectorAll(`tr[data-trip-index='${trips.length - 1}']`);
-                        tripRows.forEach(tr => {
-                            if (tr.style.display === 'none') {
-                                tr.style.display = 'table-row';
-                            } else {
-                                tr.style.display = 'none';
+                        tripRows.forEach((tr, idx) => {
+                            if (idx > 0) {
+                                tr.classList.toggle('hidden');
                             }
                         });
                     };
@@ -356,6 +357,7 @@
             polylines.forEach(polyline => map.removeLayer(polyline));
             currentUserFilter = 'all';
             displayFilteredLocations();
+            document.querySelectorAll('.trip-row').forEach(row => row.classList.remove('hidden'));
         }
 
         async function deleteAll() {
