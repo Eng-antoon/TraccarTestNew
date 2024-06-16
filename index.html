@@ -276,9 +276,9 @@
               const deleteButton = document.createElement('button');
               deleteButton.textContent = 'Delete';
               deleteButton.classList.add('delete-button');
-              deleteButton.onclick = () => {
+              deleteButton.onclick = async () => {
                   scrollToTop();
-                  deleteLocation(index);
+                  await deleteLocation(index);
               };
               deleteCell.appendChild(deleteButton);
 
@@ -297,9 +297,9 @@
                   const deleteTripButton = document.createElement('button');
                   deleteTripButton.textContent = 'Delete Trip';
                   deleteTripButton.classList.add('delete-trip-button');
-                  deleteTripButton.onclick = () => {
+                  deleteTripButton.onclick = async () => {
                       scrollToTop();
-                      deleteTrip(location.id, trips.length - 1);
+                      await deleteTrip(location.id, trips.length - 1);
                   };
                   tripCell.appendChild(deleteTripButton);
               } else {
