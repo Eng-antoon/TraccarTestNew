@@ -17,9 +17,9 @@ db = firestore.client()
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371.0  # Radius of the Earth in kilometers
     lat1 = math.radians(lat1)
-    lon1 = math.radians(lon1)
+    lon1 = math.radians(lat1)
     lat2 = math.radians(lat2)
-    lon2 = math.radians(lon2)
+    lon2 = math.radians(lat2)
     
     dlat = lat2 - lat1
     dlon = lon2 - lon1
@@ -51,23 +51,28 @@ def log_location():
         speed = 0
         cumulative_distance = 0
 
-        # Fetch previous updates for this user to calculate distance and speed
-        user_updates = db.collection('location_updates').where('id', '==', loc_id).order_by('timestamp').stream()
-        user_updates = [doc.to_dict() for doc in user_updates]
+        try:
+            # Fetch previous updates for this user to calculate distance and speed
+            user_updates = db.collection('location_updates').where('id', '==', loc_id).order_by('timestamp').stream()
+            user_updates = [doc.to_dict() for doc in user_updates]
         
-        if user_updates:
-            last_update = user_updates[-1]
-            last_lat = float(last_update['lat'])
-            last_lon = float(last_update['lon'])
-            last_timestamp = datetime.strptime(last_update['timestamp'], '%Y-%m-%d %H:%M:%S')
-            current_timestamp = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
+            if user_updates:
+                last_update = user_updates[-1]
+                last_lat = float(last_update['lat'])
+                last_lon = float(last_update['lon'])
+                last_timestamp = datetime.strptime(last_update['timestamp'], '%Y-%m-%d %H:%M:%S')
+                current_timestamp = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
 
-            # Check if it's a new trip (more than 15 minutes since the last update)
-            time_diff = (current_timestamp - last_timestamp).total_seconds()
-            if time_diff <= 15 * 60:
-                distance = haversine(last_lat, last_lon, lat, lon)
-                cumulative_distance = last_update.get('cumulative_distance', 0) + distance
-                speed = (distance / (time_diff / 3600)) if time_diff > 0 else 0
+                # Check if it's a new trip (more than 15 minutes since the last update)
+                time_diff = (current_timestamp - last_timestamp).total_seconds()
+                if time_diff <= 15 * 60:
+                    distance = haversine(last_lat, last_lon, lat, lon)
+                    cumulative_distance = last_update.get('cumulative_distance', 0) + distance
+                    speed = (distance / (time_diff / 3600)) if time_diff > 0 else 0
+
+        except Exception as e:
+            print(f'Error fetching user updates: {e}')
+            return jsonify({'error': f'Error fetching user updates: {e}'}), 500
 
         update = {
             'id': loc_id,
@@ -94,16 +99,24 @@ def log_location():
 
 @app.route('/locations', methods=['GET'])
 def get_locations():
-    updates = db.collection('location_updates').order_by('timestamp').stream()
-    location_updates = [doc.to_dict() for doc in updates]
-    return jsonify(location_updates), 200
+    try:
+        updates = db.collection('location_updates').order_by('timestamp').stream()
+        location_updates = [doc.to_dict() for doc in updates]
+        return jsonify(location_updates), 200
+    except Exception as e:
+        print(f'Error fetching locations: {e}')
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/locations', methods=['DELETE'])
 def delete_all_locations():
-    updates = db.collection('location_updates').stream()
-    for doc in updates:
-        doc.reference.delete()
-    return jsonify({'status': 'all records deleted'}), 200
+    try:
+        updates = db.collection('location_updates').stream()
+        for doc in updates:
+            doc.reference.delete()
+        return jsonify({'status': 'all records deleted'}), 200
+    except Exception as e:
+        print(f'Error deleting all locations: {e}')
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/locations/<string:static_index>', methods=['DELETE'])
 def delete_location(static_index):
@@ -113,6 +126,7 @@ def delete_location(static_index):
             doc.reference.delete()
         return jsonify({'status': 'record deleted'}), 200
     except Exception as e:
+        print(f'Error deleting location: {e}')
         return jsonify({'error': str(e)}), 500
 
 @app.route('/locations/user/<user_id>', methods=['DELETE'])
@@ -123,6 +137,7 @@ def delete_user_locations(user_id):
             doc.reference.delete()
         return jsonify({'status': f'all records for user {user_id} deleted'}), 200
     except Exception as e:
+        print(f'Error deleting user locations: {e}')
         return jsonify({'error': str(e)}), 500
 
 @app.route('/locations/trip/<user_id>/<int:trip_index>', methods=['DELETE'])
@@ -156,6 +171,7 @@ def delete_trip(user_id, trip_index):
         else:
             return jsonify({'status': 'trip not found'}), 404
     except Exception as e:
+        print(f'Error deleting trip: {e}')
         return jsonify({'error': str(e)}), 500
 
 @app.route('/')
