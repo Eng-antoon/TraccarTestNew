@@ -140,7 +140,7 @@
                 const querySnapshot = await getDocs(collection(db, "location_updates"));
                 const data = [];
                 querySnapshot.forEach((doc) => {
-                    data.push({ id: doc.id, ...doc.data() });
+                    data.push({ docId: doc.id, ...doc.data() });
                 });
                 console.log('Fetched locations from Firebase:', data);
                 return data;
@@ -232,7 +232,7 @@
                 if (trips.length === 0 || new Date(location.timestamp) - new Date(trips[trips.length - 1][trips[trips.length - 1].length - 1].timestamp) > timeThreshold) {
                     trips.push([]);
                 }
-                trips[trips.length - 1].push({ latLng, timestamp: location.timestamp, docId: location.id });
+                trips[trips.length - 1].push({ latLng, timestamp: location.timestamp, docId: location.docId });
 
                 location.user = `User ${location.id}`; // Assign user ID
 
@@ -247,6 +247,7 @@
                 row.className = isEvenRow ? 'table-row even-row' : 'table-row odd-row';
                 row.dataset.tripIndex = trips.length - 1;
                 row.dataset.userId = location.id;
+                row.dataset.docId = location.docId;
 
                 if (index === 0 || new Date(location.timestamp) - new Date(locations[index - 1].timestamp) > timeThreshold) {
                     const toggleButton = document.createElement('span');
@@ -442,6 +443,10 @@
             currentUserFilter = userFilter.value;
             displayFilteredLocations();
         }
+
+        window.showAll = showAll;
+        window.collapseAll = collapseAll;
+        window.filterByUser = filterByUser;
 
         document.addEventListener('DOMContentLoaded', (event) => {
             console.log('DOM fully loaded and parsed');
