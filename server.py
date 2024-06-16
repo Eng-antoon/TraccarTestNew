@@ -14,10 +14,13 @@ cred = credentials.Certificate("serviceAccountKey.json")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
+# Define the global list to store location updates in memory
+location_updates = []
+
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371.0  # Radius of the Earth in kilometers
     lat1 = math.radians(lat1)
-    lon1 = math.radians(lon1)
+    lon1 = math.radians(lat1)
     lat2 = math.radians(lat2)
     lon2 = math.radians(lat2)
     
@@ -32,6 +35,7 @@ def haversine(lat1, lon1, lat2, lon2):
 
 @app.route('/log_location', methods=['POST'])
 def log_location():
+    global location_updates  # Ensure we're modifying the global list
     loc_id = request.args.get('id') or request.form.get('id')
     lat = request.args.get('lat') or request.form.get('lat')
     lon = request.args.get('lon') or request.form.get('lon')
