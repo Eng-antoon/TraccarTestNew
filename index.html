@@ -102,8 +102,6 @@
     </style>
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script type="module">
-        const backendUrl = 'https://traccartestnew.onrender.com';
-
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getFirestore, collection, query, orderBy, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -303,8 +301,6 @@
                     placeholder.innerHTML = '<b>--------</b>';
                     tripCell.appendChild(placeholder);
                 }
-
-                row.classList.add('trip-row');
             });
 
             for (const id in idToLocations) {
@@ -322,13 +318,6 @@
             }
         }
 
-        function showAll() {
-            markers.forEach(marker => map.removeLayer(marker));
-            polylines.forEach(polyline => map.removeLayer(polyline));
-            currentUserFilter = 'all';
-            displayFilteredLocations();
-        }
-
         async function deleteAll() {
             try {
                 const response = await fetch(`${backendUrl}/locations`, { method: 'DELETE' });
@@ -344,10 +333,7 @@
 
         async function deleteLocation(docId) {
             try {
-                const response = await fetch(`${backendUrl}/locations/${docId}`, { method: 'DELETE' });
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
+                await deleteDoc(doc(db, "location_updates", docId));
                 console.log(`Deleted location with docId ${docId}`);
                 loadAndDisplayLocations();
             } catch (error) {
@@ -357,10 +343,11 @@
 
         async function deleteUser(userId) {
             try {
-                const response = await fetch(`${backendUrl}/locations/user/${userId}`, { method: 'DELETE' });
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
+                const q = query(collection(db, "location_updates"), where("id", "==", userId));
+                const querySnapshot = await getDocs(q);
+                querySnapshot.forEach(async (doc) => {
+                    await deleteDoc(doc.ref);
+                });
                 console.log(`Deleted all locations for user ${userId}`);
                 loadAndDisplayLocations();
             } catch (error) {
@@ -370,12 +357,43 @@
 
         async function deleteTrip(userId, tripIndex) {
             try {
-                const response = await fetch(`${backendUrl}/locations/trip/${userId}/${tripIndex}`, { method: 'DELETE' });
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                const q = query(
+                    collection(db, "location_updates"),
+                    where("id", "==", userId),
+                    orderBy("timestamp", "asc")
+                );
+                const querySnapshot = await getDocs(q);
+                const userUpdates = querySnapshot.docs.map(doc => doc.data());
+
+                const trips = [];
+                let currentTrip = [];
+                let lastTimestamp = null;
+
+                for (const update of userUpdates) {
+                    const currentTimestamp = new Date(update.timestamp);
+                    if (lastTimestamp && (currentTimestamp - lastTimestamp) > 15 * 60 * 1000) {
+                        trips.push(currentTrip);
+                        currentTrip = [];
+                    }
+                    currentTrip.push(update);
+                    lastTimestamp = currentTimestamp;
                 }
-                console.log(`Deleted trip ${tripIndex} for user ${userId}`);
-                loadAndDisplayLocations();
+
+                if (currentTrip.length > 0) {
+                    trips.push(currentTrip);
+                }
+
+                if (0 <= tripIndex && tripIndex < trips.length) {
+                    const tripToDelete = trips[tripIndex];
+                    for (const update of tripToDelete) {
+                        const docId = update.docId;
+                        await deleteDoc(doc(db, "location_updates", docId));
+                    }
+                    console.log(`Deleted trip ${tripIndex} for user ${userId}`);
+                    loadAndDisplayLocations();
+                } else {
+                    console.error(`Trip ${tripIndex} for user ${userId} not found`);
+                }
             } catch (error) {
                 console.error(`Error deleting trip ${tripIndex} for user ${userId}:`, error);
             }
@@ -402,7 +420,7 @@
     <h1>Location Updates</h1>
     <div id="map"></div>
     <div class="button-container">
-        <button class="show-all-button" onclick="showAll()">Show All</button>
+        <button class="show-all-button" onclick="loadAndDisplayLocations()">Show All</button>
         <button class="delete-all-button" onclick="deleteAll()">Delete All</button>
     </div>
     <div class="filter-container">
