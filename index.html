@@ -314,6 +314,12 @@
                     };
                     tripCell.appendChild(showTripButton);
 
+                    const playTripButton = document.createElement('button');
+                    playTripButton.textContent = 'Play Trip';
+                    playTripButton.classList.add('play-trip-button');
+                    playTripButton.onclick = () => playTrip(trips[trips.length - 1]);
+                    tripCell.appendChild(playTripButton);
+
                     const deleteTripButton = document.createElement('button');
                     deleteTripButton.textContent = 'Delete Trip';
                     deleteTripButton.classList.add('delete-trip-button');
@@ -352,6 +358,33 @@
                     row.style.display = row.style.display === 'none' ? '' : 'none';
                 }
             });
+        }
+
+        function playTrip(trip) {
+            // Remove existing polylines and markers before playing the trip
+            polylines.forEach(polyline => map.removeLayer(polyline));
+            polylines = [];
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+
+            let index = 0;
+
+            function drawNextPoint() {
+                if (index < trip.length) {
+                    const latLng = trip[index].latLng;
+                    if (index > 0) {
+                        const previousLatLng = trip[index - 1].latLng;
+                        const polyline = L.polyline([previousLatLng, latLng], { color: 'black', weight: 4 }).addTo(map);
+                        polylines.push(polyline);
+                    }
+                    index++;
+                    setTimeout(drawNextPoint, 250); // Adjust the delay as needed
+                } else {
+                    alert('Trip is over');
+                }
+            }
+
+            drawNextPoint();
         }
 
         function showAll() {
