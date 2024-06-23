@@ -78,8 +78,8 @@ def log_location():
                 print(f"Error: Unrealistic speed detected: {speed} km/h")
                 return jsonify({'error': 'Unrealistic speed detected'}), 400
 
-            # Validation to avoid duplicate locations
-            if distance < 0.01 and time_diff < 30:
+            # Validation to avoid duplicate locations within 10 meters and 30 seconds
+            if distance < 0.02 and time_diff < 30:
                 print(f"Error: Duplicate location detected: distance={distance}, time_diff={time_diff}")
                 return jsonify({'error': 'Duplicate location detected'}), 400
 
