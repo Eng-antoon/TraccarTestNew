@@ -20,9 +20,9 @@ location_updates = []
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371.0  # Radius of the Earth in kilometers
     lat1 = math.radians(lat1)
-    lon1 = math.radians(lat1)
+    lon1 = math.radians(lon1)
     lat2 = math.radians(lat2)
-    lon2 = math.radians(lat2)
+    lon2 = math.radians(lon2)
     
     dlat = lat2 - lat1
     dlon = lon2 - lon1
@@ -56,24 +56,32 @@ def log_location():
     speed = 0
     cumulative_distance = 0
 
-    user_updates = []
-    if location_updates:
-        user_updates = [update for update in location_updates if update['id'] == loc_id]
-        if user_updates:
-            last_update = user_updates[-1]
-            last_lat = float(last_update['lat'])
-            last_lon = float(last_update['lon'])
-            last_timestamp = datetime.strptime(last_update['timestamp'], '%Y-%m-%d %H:%M:%S')
-            current_timestamp = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
+    user_updates = [update for update in location_updates if update['id'] == loc_id]
+    
+    if user_updates:
+        last_update = user_updates[-1]
+        last_lat = float(last_update['lat'])
+        last_lon = float(last_update['lon'])
+        last_timestamp = datetime.strptime(last_update['timestamp'], '%Y-%m-%d %H:%M:%S')
+        current_timestamp = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
 
-            # Check if it's a new trip (more than 15 minutes since the last update)
-            time_diff = (current_timestamp - last_timestamp).total_seconds()
-            if time_diff > 15 * 60:
-                cumulative_distance = 0
-            else:
-                distance = haversine(last_lat, last_lon, lat, lon)
-                cumulative_distance = last_update.get('cumulative_distance', 0) + distance
-                speed = (distance / (time_diff / 3600)) if time_diff > 0 else 0
+        time_diff = (current_timestamp - last_timestamp).total_seconds()
+        if time_diff > 15 * 60:
+            cumulative_distance = 0
+        else:
+            distance = haversine(last_lat, last_lon, lat, lon)
+            cumulative_distance = last_update.get('cumulative_distance', 0) + distance
+            speed = (distance / (time_diff / 3600)) if time_diff > 0 else 0
+
+            # Validation to avoid unrealistic speed
+            if speed > 140:
+                print(f"Error: Unrealistic speed detected: {speed} km/h")
+                return jsonify({'error': 'Unrealistic speed detected'}), 400
+
+            # Validation to avoid duplicate locations
+            if distance < 0.01 and time_diff < 30:
+                print(f"Error: Duplicate location detected: distance={distance}, time_diff={time_diff}")
+                return jsonify({'error': 'Duplicate location detected'}), 400
 
     update = {
         'id': loc_id,
