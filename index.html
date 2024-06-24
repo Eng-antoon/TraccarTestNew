@@ -437,22 +437,22 @@
             }
         }
 
-        function playTrip(trip) {
+        async function playTrip(trip) {
             // Remove existing polylines and markers before playing the trip
             polylines.forEach(polyline => polyline.setMap(null));
             polylines = [];
             markers.forEach(marker => marker.setMap(null));
             markers = [];
 
-            let index = 0;
-
-            function drawNextPoint() {
+            let index = 1; // Start from the second point
+            async function drawNextSegment() {
                 if (index < trip.length) {
-                    const latLng = trip[index].latLng;
-                    if (index > 0) {
-                        const previousLatLng = trip[index - 1].latLng;
+                    const start = trip[index - 1].latLng;
+                    const end = trip[index].latLng;
+                    try {
+                        const directionsResult = await getDirections(start, end);
                         const polyline = new google.maps.Polyline({
-                            path: [previousLatLng, latLng],
+                            path: directionsResult.routes[0].overview_path,
                             geodesic: true,
                             strokeColor: '#000000',
                             strokeOpacity: 1.0,
@@ -460,15 +460,17 @@
                             map: map
                         });
                         polylines.push(polyline);
+                        index++;
+                        setTimeout(drawNextSegment, 500); // Adjust the delay as needed
+                    } catch (error) {
+                        console.error('Error fetching directions:', error);
                     }
-                    index++;
-                    setTimeout(drawNextPoint, 250); // Adjust the delay as needed
                 } else {
                     alert('Trip is over');
                 }
             }
 
-            drawNextPoint();
+            drawNextSegment();
         }
 
         function showAll() {

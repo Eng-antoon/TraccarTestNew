@@ -2,7 +2,6 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from datetime import datetime
 import os
-import math
 import firebase_admin
 from firebase_admin import credentials, firestore
 from geopy.distance import geodesic
@@ -63,11 +62,10 @@ def log_location():
                 print(f"Error: Unrealistic speed detected: {speed} km/h")
                 return jsonify({'error': 'Unrealistic speed detected'}), 400
 
-            # Validation to avoid points within 0.7 kilometers
-            for update in user_updates:
-                if geodesic((update['lat'], update['lon']), (lat, lon)).kilometers < 0.7:
-                    print(f"Error: Point too close to an existing point in the trip")
-                    return jsonify({'error': 'Point too close to an existing point in the trip'}), 400
+            # Validation to avoid points within 0.2 kilometers
+            if distance < 0.2:
+                print(f"Error: Point too close to the previous point")
+                return jsonify({'error': 'Point too close to the previous point'}), 400
 
     update = {
         'id': loc_id,
