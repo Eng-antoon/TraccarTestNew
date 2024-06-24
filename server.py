@@ -5,6 +5,7 @@ import os
 import math
 import firebase_admin
 from firebase_admin import credentials, firestore
+from geopy.distance import geodesic
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -16,63 +17,6 @@ db = firestore.client()
 
 # Define the global list to store location updates in memory
 location_updates = []
-
-def vincenty(lat1, lon1, lat2, lon2):
-    a = 6378137.0  # major axis
-    f = 1 / 298.257223563  # flattening
-    b = (1 - f) * a  # minor axis
-
-    lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
-    L = lon2 - lon1
-
-    U1 = math.atan((1 - f) * math.tan(lat1))
-    U2 = math.atan((1 - f) * math.tan(lat2))
-    sinU1 = math.sin(U1)
-    cosU1 = math.cos(U1)
-    sinU2 = math.sin(U2)
-    cosU2 = math.cos(U2)
-
-    lambda_ = L
-    lambdaP = 2 * math.pi
-    iterLimit = 100
-
-    while abs(lambda_ - lambdaP) > 1e-12 and iterLimit > 0:
-        sinLambda = math.sin(lambda_)
-        cosLambda = math.cos(lambda_)
-        sinSigma = math.sqrt((cosU2 * sinLambda) ** 2 +
-                             (cosU1 * sinU2 - sinU1 * cosU2 * cosLambda) ** 2)
-        if sinSigma == 0:
-            return 0  # coincident points
-        cosSigma = sinU1 * sinU2 + cosU1 * cosU2 * cosLambda
-        sigma = math.atan2(sinSigma, cosSigma)
-        sinAlpha = cosU1 * cosU2 * sinLambda / sinSigma
-        cosSqAlpha = 1 - sinAlpha ** 2
-        cos2SigmaM = cosSigma - 2 * sinU1 * sinU2 / cosSqAlpha
-        if math.isnan(cos2SigmaM):
-            cos2SigmaM = 0  # equatorial line
-        C = f / 16 * cosSqAlpha * (4 + f * (4 - 3 * cosSqAlpha))
-        lambdaP = lambda_
-        lambda_ = L + (1 - C) * f * sinAlpha * (
-            sigma + C * sinSigma * (
-                cos2SigmaM + C * cosSigma * (
-                    -1 + 2 * cos2SigmaM ** 2)))
-
-        iterLimit -= 1
-
-    if iterLimit == 0:
-        return None  # formula failed to converge
-
-    uSq = cosSqAlpha * (a ** 2 - b ** 2) / (b ** 2)
-    A = 1 + uSq / 16384 * (4096 + uSq * (-768 + uSq * (320 - 175 * uSq)))
-    B = uSq / 1024 * (256 + uSq * (-128 + uSq * (74 - 47 * uSq)))
-    deltaSigma = B * sinSigma * (
-        cos2SigmaM + B / 4 * (
-            cosSigma * (-1 + 2 * cos2SigmaM ** 2) -
-            B / 6 * cos2SigmaM * (-3 + 4 * sinSigma ** 2) * (-3 + 4 * cos2SigmaM ** 2)))
-
-    s = b * A * (sigma - deltaSigma)
-
-    return s  # distance in meters
 
 @app.route('/log_location', methods=['POST'])
 def log_location():
@@ -110,19 +54,20 @@ def log_location():
         if time_diff > 15 * 60:
             cumulative_distance = 0
         else:
-            distance = vincenty(last_lat, last_lon, lat, lon) / 1000  # Convert to kilometers
+            distance = geodesic((last_lat, last_lon), (lat, lon)).kilometers
             cumulative_distance = last_update.get('cumulative_distance', 0) + distance
             speed = (distance / (time_diff / 3600)) if time_diff > 0 else 0
 
             # Validation to avoid unrealistic speed
-            if speed > 130:
+            if speed > 140:
                 print(f"Error: Unrealistic speed detected: {speed} km/h")
                 return jsonify({'error': 'Unrealistic speed detected'}), 400
 
-            # Validation to avoid duplicate locations within 10 meters and 30 seconds
-            if distance < 0.05 and time_diff < 30:
-                print(f"Error: Duplicate location detected: distance={distance}, time_diff={time_diff}")
-                return jsonify({'error': 'Duplicate location detected'}), 400
+            # Validation to avoid points within 0.7 kilometers
+            for update in user_updates:
+                if geodesic((update['lat'], update['lon']), (lat, lon)).kilometers < 0.7:
+                    print(f"Error: Point too close to an existing point in the trip")
+                    return jsonify({'error': 'Point too close to an existing point in the trip'}), 400
 
     update = {
         'id': loc_id,
@@ -237,5 +182,5 @@ def serve_index():
     return send_from_directory(os.getcwd(), 'index.html')
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000)) 
+    port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
