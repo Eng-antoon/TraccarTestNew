@@ -2,7 +2,6 @@
 <html>
 <head>
     <title>Location Updates</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -36,7 +35,7 @@
             text-align: left;
         }
         th {
-            background-color: #bbbdbb;
+            background-color: #4CAF50;
             color: white;
         }
         .button-container {
@@ -104,8 +103,15 @@
             color: #007BFF;
             text-decoration: underline;
         }
+        .highlight {
+            background-color: yellow !important;
+        }
     </style>
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=default"></script>
+    <script
+      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC85SO9Hdwg43pvbmfXjWdOzRicK-GOhvQ&libraries=maps,marker,directions&v=beta"
+      defer
+    ></script>
     <script type="module">
         // Define backendUrl
         const backendUrl = 'https://traccartestnew.onrender.com';
@@ -116,7 +122,7 @@
 
         // Your web app's Firebase configuration
         const firebaseConfig = {
-            apiKey: "AIzaSyBxcqFcUGgjd_5msgpUzoQOBrrNvheORuQ",
+            apiKey: "AIzaSyC85SO9Hdwg43pvbmfXjWdOzRicK-GOhvQ",
             authDomain: "traccarnew.firebaseapp.com",
             projectId: "traccarnew",
             storageBucket: "traccarnew.appspot.com",
@@ -149,17 +155,36 @@
             }
         }
 
+        async function getDirections(start, end) {
+            const directionsService = new google.maps.DirectionsService();
+            return new Promise((resolve, reject) => {
+                directionsService.route(
+                    {
+                        origin: start,
+                        destination: end,
+                        travelMode: google.maps.TravelMode.DRIVING
+                    },
+                    (result, status) => {
+                        if (status === 'OK') {
+                            resolve(result);
+                        } else {
+                            reject(`Directions request failed due to ${status}`);
+                        }
+                    }
+                );
+            });
+        }
+
         function initMap() {
             const mapContainer = document.getElementById('map');
             if (!mapContainer) {
                 console.error('Map container not found');
                 return;
             }
-            map = L.map('map').setView([0, 0], 2);
-
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            }).addTo(map);
+            map = new google.maps.Map(mapContainer, {
+                center: { lat: 43.4142989, lng: -124.2301242 },
+                zoom: 4
+            });
 
             loadAndDisplayLocations();
         }
@@ -198,7 +223,7 @@
             });
         }
 
-        function displayFilteredLocations() {
+        async function displayFilteredLocations() {
             const locations = allLocations.filter(loc => currentUserFilter === 'all' || loc.id === currentUserFilter);
 
             sortLocationsByUserAndTimestamp(locations);
@@ -206,12 +231,12 @@
             const tableBody = document.getElementById('locationTable').getElementsByTagName('tbody')[0];
             tableBody.innerHTML = ''; // Clear existing table data
 
-            markers.forEach(marker => map.removeLayer(marker));
-            polylines.forEach(polyline => map.removeLayer(polyline));
+            markers.forEach(marker => marker.setMap(null));
+            polylines.forEach(polyline => polyline.setMap(null));
             markers = [];
             polylines = [];
 
-            const bounds = L.latLngBounds(); // Initialize bounds
+            const bounds = new google.maps.LatLngBounds(); // Initialize bounds
             const idToLocations = {}; // Dictionary to group locations by ID and separate trips
 
             const timeThreshold = 15 * 60 * 1000; // 15 minutes in milliseconds
@@ -219,8 +244,9 @@
             let currentUser = null;
             let isEvenRow = true;
 
-            locations.forEach((location, index) => {
-                const latLng = L.latLng(parseFloat(location.lat), parseFloat(location.lon));
+            for (let i = 0; i < locations.length; i++) {
+                const location = locations[i];
+                const latLng = new google.maps.LatLng(parseFloat(location.lat), parseFloat(location.lon));
                 bounds.extend(latLng); // Extend bounds to include this location
 
                 // Group locations by ID and separate trips
@@ -249,7 +275,7 @@
                 row.dataset.userId = location.id;
                 row.dataset.docId = location.docId;
 
-                if (index === 0 || new Date(location.timestamp) - new Date(locations[index - 1].timestamp) > timeThreshold) {
+                if (i === 0 || new Date(location.timestamp) - new Date(locations[i - 1].timestamp) > timeThreshold) {
                     const toggleButton = document.createElement('span');
                     toggleButton.textContent = '[Toggle Trip]';
                     toggleButton.classList.add('trip-toggle-button');
@@ -287,9 +313,8 @@
                 showButton.classList.add('show-button');
                 showButton.onclick = () => {
                     scrollToTop();
-                    map.setView(latLng, 13);
-                    const marker = L.marker(latLng).addTo(map).bindPopup(`ID: ${location.id}<br>Timestamp: ${location.timestamp}`).openPopup();
-                    markers.push(marker);
+                    map.setCenter(latLng);
+                    map.setZoom(13);
                 };
                 actionCell.appendChild(showButton);
 
@@ -304,13 +329,15 @@
 
                 // Trip column
                 const tripsLength = trips[trips.length - 1].length;
-                if (tripsLength === 1 || (tripsLength > 1 && (index === 0 || new Date(location.timestamp) - new Date(locations[index - 1].timestamp) > timeThreshold))) {
+                if (tripsLength === 1 || (tripsLength > 1 && (i === 0 || new Date(location.timestamp) - new Date(locations[i - 1].timestamp) > timeThreshold))) {
                     const showTripButton = document.createElement('button');
                     showTripButton.textContent = 'Show Trip';
                     showTripButton.classList.add('show-trip-button');
                     showTripButton.onclick = () => {
                         scrollToTop();
-                        map.fitBounds(L.latLngBounds(trips[trips.length - 1].map(loc => loc.latLng)));
+                        const tripBounds = new google.maps.LatLngBounds();
+                        trips[trips.length - 1].forEach(loc => tripBounds.extend(loc.latLng));
+                        map.fitBounds(tripBounds);
                     };
                     tripCell.appendChild(showTripButton);
 
@@ -333,17 +360,52 @@
                     placeholder.innerHTML = '<b>--------</b>';
                     tripCell.appendChild(placeholder);
                 }
-            });
+            }
 
-            // Draw polylines for each ID group and separate trips
             for (const id in idToLocations) {
-                idToLocations[id].forEach(trip => {
+                for (const trip of idToLocations[id]) {
                     if (trip.length > 1) {
-                        const latLngs = trip.map(loc => loc.latLng);
-                        const polyline = L.polyline(latLngs, { color: 'black', weight: 4 }).addTo(map);
-                        polylines.push(polyline);
+                        const start = trip[0].latLng;
+                        const end = trip[trip.length - 1].latLng;
+                        try {
+                            const directionsResult = await getDirections(start, end);
+                            const polyline = new google.maps.Polyline({
+                                path: directionsResult.routes[0].overview_path,
+                                geodesic: true,
+                                strokeColor: '#000000',
+                                strokeOpacity: 1.0,
+                                strokeWeight: 4,
+                                map: map
+                            });
+
+                            // Add event listeners to show/hide markers
+                            let hideMarkersTimeout;
+                            polyline.addListener('mouseover', () => {
+                                clearTimeout(hideMarkersTimeout);
+                                trip.forEach(location => {
+                                    const marker = new google.maps.Marker({
+                                        position: location.latLng,
+                                        map: map,
+                                        title: `ID: ${location.docId}`
+                                    });
+                                    marker.addListener('click', () => highlightLocation(location.docId));
+                                    markers.push(marker);
+                                });
+                            });
+
+                            polyline.addListener('mouseout', () => {
+                                hideMarkersTimeout = setTimeout(() => {
+                                    markers.forEach(marker => marker.setMap(null));
+                                    markers = [];
+                                }, 3000); // Hide markers after 3 seconds
+                            });
+
+                            polylines.push(polyline);
+                        } catch (error) {
+                            console.error('Error fetching directions:', error);
+                        }
                     }
-                });
+                }
             }
 
             if (locations.length > 0) {
@@ -360,11 +422,24 @@
             });
         }
 
+        function highlightLocation(docId) {
+            const tableBody = document.getElementById('locationTable').getElementsByTagName('tbody')[0];
+            const rows = tableBody.getElementsByTagName('tr');
+            for (let row of rows) {
+                row.classList.remove('highlight');
+            }
+            const targetRow = tableBody.querySelector(`[data-doc-id="${docId}"]`);
+            if (targetRow) {
+                targetRow.classList.add('highlight');
+                targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
         function playTrip(trip) {
             // Remove existing polylines and markers before playing the trip
-            polylines.forEach(polyline => map.removeLayer(polyline));
+            polylines.forEach(polyline => polyline.setMap(null));
             polylines = [];
-            markers.forEach(marker => map.removeLayer(marker));
+            markers.forEach(marker => marker.setMap(null));
             markers = [];
 
             let index = 0;
@@ -374,7 +449,14 @@
                     const latLng = trip[index].latLng;
                     if (index > 0) {
                         const previousLatLng = trip[index - 1].latLng;
-                        const polyline = L.polyline([previousLatLng, latLng], { color: 'black', weight: 4 }).addTo(map);
+                        const polyline = new google.maps.Polyline({
+                            path: [previousLatLng, latLng],
+                            geodesic: true,
+                            strokeColor: '#000000',
+                            strokeOpacity: 1.0,
+                            strokeWeight: 4,
+                            map: map
+                        });
                         polylines.push(polyline);
                     }
                     index++;
@@ -388,8 +470,8 @@
         }
 
         function showAll() {
-            markers.forEach(marker => map.removeLayer(marker));
-            polylines.forEach(polyline => map.removeLayer(polyline));
+            markers.forEach(marker => marker.setMap(map));
+            polylines.forEach(polyline => polyline.setMap(map));
             currentUserFilter = 'all';
             displayFilteredLocations();
             // Expand all trips
@@ -451,14 +533,38 @@
 
         async function deleteTrip(userId, tripIndex) {
             try {
-                const querySnapshot = await getDocs(collection(db, "location_updates"));
-                const deletePromises = [];
-                querySnapshot.forEach((doc) => {
-                    const data = doc.data();
-                    if (data.id === userId && data.tripIndex === tripIndex) {
-                        deletePromises.push(deleteDoc(doc.ref));
+                // Identify the trip in the frontend
+                const userTrips = allLocations.filter(loc => loc.id === userId);
+                const trips = [];
+                let currentTrip = [];
+                let lastTimestamp = null;
+                const timeThreshold = 15 * 60 * 1000; // 15 minutes in milliseconds
+
+                userTrips.forEach(location => {
+                    const currentTimestamp = new Date(location.timestamp).getTime();
+                    if (lastTimestamp && (currentTimestamp - lastTimestamp) > timeThreshold) {
+                        trips.push(currentTrip);
+                        currentTrip = [];
                     }
+                    currentTrip.push(location);
+                    lastTimestamp = currentTimestamp;
                 });
+
+                if (currentTrip.length > 0) {
+                    trips.push(currentTrip);
+                }
+
+                if (tripIndex < 0 || tripIndex >= trips.length) {
+                    throw new Error('Invalid trip index');
+                }
+
+                const tripToDelete = trips[tripIndex];
+
+                // Delete each location in the trip
+                const deletePromises = tripToDelete.map(async location => {
+                    await deleteDoc(doc(db, "location_updates", location.docId));
+                });
+
                 await Promise.all(deletePromises);
                 console.log(`Deleted trip ${tripIndex} for user ${userId}`);
                 loadAndDisplayLocations();
