@@ -57,15 +57,15 @@ def log_location():
             cumulative_distance = last_update.get('cumulative_distance', 0) + distance
             speed = (distance / (time_diff / 3600)) if time_diff > 0 else 0
 
-            # Validation to avoid unrealistic speed
-            if speed > 140:
-                print(f"Error: Unrealistic speed detected: {speed} km/h")
-                return jsonify({'error': 'Unrealistic speed detected'}), 400
+            # # Validation to avoid unrealistic speed
+            # if speed > 140:
+            #     print(f"Error: Unrealistic speed detected: {speed} km/h")
+            #     return jsonify({'error': 'Unrealistic speed detected'}), 400
 
-            # Validation to avoid points within 0.2 kilometers
-            if distance < 0.2:
-                print(f"Error: Point too close to the previous point")
-                return jsonify({'error': 'Point too close to the previous point'}), 400
+            # # Validation to avoid points within 0.2 kilometers
+            # if distance < 0.2:
+            #     print(f"Error: Point too close to the previous point")
+            #     return jsonify({'error': 'Point too close to the previous point'}), 400
 
     update = {
         'id': loc_id,
