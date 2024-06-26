@@ -109,7 +109,7 @@
     </style>
     <script src="https://polyfill.io/v3/polyfill.min.js?features=default"></script>
     <script
-      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC85SO9Hdwg43pvbmfXjWdOzRicK-GOhvQ&libraries=maps,marker,directions&v=beta"
+      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC85SO9Hdwg43pvbmfXjWdOzRicK-GOhvQ&libraries=geometry,places&v=beta"
       defer
     ></script>
     <script type="module">
@@ -155,14 +155,14 @@
             }
         }
 
-        async function getDirections(start, end) {
+        async function getDirections(start, end, travelMode = 'DRIVING') {
             const directionsService = new google.maps.DirectionsService();
             return new Promise((resolve, reject) => {
                 directionsService.route(
                     {
                         origin: start,
                         destination: end,
-                        travelMode: google.maps.TravelMode.DRIVING
+                        travelMode: travelMode
                     },
                     (result, status) => {
                         if (status === 'OK') {
@@ -368,10 +368,10 @@
                         for (let j = 1; j < trip.length; j++) {
                             const start = trip[j - 1].latLng;
                             const end = trip[j].latLng;
-                            try {
-                                const directionsResult = await getDirections(start, end);
+                            const distance = google.maps.geometry.spherical.computeDistanceBetween(start, end);
+                            if (distance < 700) {
                                 const polyline = new google.maps.Polyline({
-                                    path: directionsResult.routes[0].overview_path,
+                                    path: [start, end],
                                     geodesic: true,
                                     strokeColor: '#000000',
                                     strokeOpacity: 1.0,
@@ -402,8 +402,45 @@
                                 });
 
                                 polylines.push(polyline);
-                            } catch (error) {
-                                console.error('Error fetching directions:', error);
+                            } else {
+                                const travelMode = 'DRIVING';
+                                try {
+                                    const directionsResult = await getDirections(start, end, travelMode);
+                                    const polyline = new google.maps.Polyline({
+                                        path: directionsResult.routes[0].overview_path,
+                                        geodesic: true,
+                                        strokeColor: '#000000',
+                                        strokeOpacity: 1.0,
+                                        strokeWeight: 4,
+                                        map: map
+                                    });
+
+                                    // Add event listeners to show/hide markers
+                                    let hideMarkersTimeout;
+                                    polyline.addListener('mouseover', () => {
+                                        clearTimeout(hideMarkersTimeout);
+                                        trip.forEach(location => {
+                                            const marker = new google.maps.Marker({
+                                                position: location.latLng,
+                                                map: map,
+                                                title: `ID: ${location.docId}`
+                                            });
+                                            marker.addListener('click', () => highlightLocation(location.docId));
+                                            markers.push(marker);
+                                        });
+                                    });
+
+                                    polyline.addListener('mouseout', () => {
+                                        hideMarkersTimeout = setTimeout(() => {
+                                            markers.forEach(marker => marker.setMap(null));
+                                            markers = [];
+                                        }, 3000); // Hide markers after 3 seconds
+                                    });
+
+                                    polylines.push(polyline);
+                                } catch (error) {
+                                    console.error('Error fetching directions:', error);
+                                }
                             }
                         }
                     }
@@ -449,10 +486,10 @@
                 if (index < trip.length) {
                     const start = trip[index - 1].latLng;
                     const end = trip[index].latLng;
-                    try {
-                        const directionsResult = await getDirections(start, end);
+                    const distance = google.maps.geometry.spherical.computeDistanceBetween(start, end);
+                    if (distance < 700) {
                         const polyline = new google.maps.Polyline({
-                            path: directionsResult.routes[0].overview_path,
+                            path: [start, end],
                             geodesic: true,
                             strokeColor: '#000000',
                             strokeOpacity: 1.0,
@@ -462,8 +499,24 @@
                         polylines.push(polyline);
                         index++;
                         setTimeout(drawNextSegment, 500); // Adjust the delay as needed
-                    } catch (error) {
-                        console.error('Error fetching directions:', error);
+                    } else {
+                        const travelMode = 'DRIVING';
+                        try {
+                            const directionsResult = await getDirections(start, end, travelMode);
+                            const polyline = new google.maps.Polyline({
+                                path: directionsResult.routes[0].overview_path,
+                                geodesic: true,
+                                strokeColor: '#000000',
+                                strokeOpacity: 1.0,
+                                strokeWeight: 4,
+                                map: map
+                            });
+                            polylines.push(polyline);
+                            index++;
+                            setTimeout(drawNextSegment, 500); // Adjust the delay as needed
+                        } catch (error) {
+                            console.error('Error fetching directions:', error);
+                        }
                     }
                 } else {
                     alert('Trip is over');
